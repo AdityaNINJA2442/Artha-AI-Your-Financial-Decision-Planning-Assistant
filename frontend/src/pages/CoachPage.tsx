@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, Send, Bot, User, ArrowRight, ShieldCheck, Zap, Sliders, CreditCard } from 'lucide-react';
+import { Sparkles, Send, ArrowRight } from 'lucide-react';
 
 interface CoachMessage {
   id: number;
@@ -14,17 +14,13 @@ interface CoachMessage {
 
 export const CoachPage: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
+  const [conversationId, setConversationId] = useState<number | null>(null);
   const [messages, setMessages] = useState<CoachMessage[]>([
     {
       id: 1,
       sender: 'coach',
-      text: "Good evening, Aditya. I've reviewed your latest PostgreSQL financial records for August. Here are 3 key insights:",
-      insights: [
-        'Savings rate improved +8% after your car fund deposit',
-        'Food delivery expenses increased +31% this month (₹12,400 total)',
-        'Your Car Purchase Goal is currently 2 months ahead of schedule'
-      ],
-      badge: 'AI-Powered Analysis (Gemini 1.5)',
+      text: "Good day! I am your AI Financial Coach. I analyze your PostgreSQL financial records (income, expenses, loans, and goals) and execute real deterministic tools to answer your decision questions. Ask me anything below!",
+      badge: 'AI Financial Advisor',
       tools: ['UserProfile', 'TransactionLedger', 'FinancialFitnessMath'],
       actions: [
         { label: 'Run What-If Simulator', route: '/simulator' },
@@ -35,11 +31,9 @@ export const CoachPage: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputMessage.trim() || loading) return;
+  const handleSend = async (userText: string) => {
+    if (!userText.trim() || loading) return;
 
-    const userText = inputMessage;
     setInputMessage('');
 
     const newMsg = {
@@ -62,12 +56,16 @@ export const CoachPage: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ message: userText })
+        body: JSON.stringify({
+          message: userText,
+          conversation_id: conversationId
+        })
       });
 
       const data = await res.json();
 
       if (res.ok) {
+        if (data.conversation_id) setConversationId(data.conversation_id);
         setMessages(prev => [...prev, {
           id: Date.now() + 1,
           sender: 'coach',
@@ -80,20 +78,20 @@ export const CoachPage: React.FC = () => {
         setMessages(prev => [...prev, {
           id: Date.now() + 1,
           sender: 'coach',
-          text: "Based on your current profile (Income: ₹1,00,000, Fixed Expenses: ₹40,000, Savings: ₹2,50,000), adding a ₹15 Lakh loan EMI (₹31,187/mo) is rated CAUTION as it reduces your monthly surplus below 20%.",
-          badge: 'Rule-based / Local System Analysis',
-          tools: ['loan_engine.calculate_loan_affordability'],
-          actions: [{ label: 'Open Loan Planner', route: '/loans' }]
+          text: "I was unable to retrieve your financial calculation. Please check your backend connection.",
+          badge: 'System Notice',
+          tools: [],
+          actions: [{ label: 'View Dashboard', route: '/dashboard' }]
         }]);
       }
     } catch (err) {
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         sender: 'coach',
-        text: "Based on your current profile (Income: ₹1,00,000, Fixed Expenses: ₹40,000, Savings: ₹2,50,000), adding a ₹15 Lakh loan EMI (₹31,187/mo) is rated CAUTION as it reduces your monthly surplus below 20%.",
-        badge: 'Rule-based / Local System Analysis',
-        tools: ['loan_engine.calculate_loan_affordability'],
-        actions: [{ label: 'Open Loan Planner', route: '/loans' }]
+        text: "Network or server connection error.",
+        badge: 'Connection Error',
+        tools: [],
+        actions: [{ label: 'View Dashboard', route: '/dashboard' }]
       }]);
     } finally {
       setLoading(false);
@@ -106,31 +104,53 @@ export const CoachPage: React.FC = () => {
       {/* HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#FFF' }}>Artha AI Coach</h1>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-cream)' }}>Artha AI Coach</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Multi-stage intent pipeline executing real deterministic backend tools</p>
         </div>
-        <div className="badge-indigo" style={{ fontSize: '0.85rem' }}>
+        <div className="badge-gold" style={{ fontSize: '0.85rem' }}>
           <Sparkles size={16} /> Gemini 1.5 + Real Tool Engine
         </div>
       </div>
+
+      {/* SUGGESTION CHIPS */}
+      {messages.length <= 1 && (
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '24px' }}>
+          {[
+            "Can I afford a ₹70,000 laptop?",
+            "Can I afford a ₹15 lakh car loan?",
+            "Why did my food spending increase?",
+            "What if I lose my job for 3 months?"
+          ].map((chip, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSend(chip)}
+              className="btn-secondary"
+              style={{ fontSize: '0.82rem', padding: '8px 14px' }}
+            >
+              💡 {chip}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* MESSAGES LIST */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px' }}>
         {messages.map(m => (
           <div key={m.id} style={{ display: 'flex', justifyContent: m.sender === 'user' ? 'flex-end' : 'flex-start' }}>
             <div
-              className={m.sender === 'user' ? 'btn-indigo' : 'fintech-card-elevated'}
+              className={m.sender === 'user' ? 'btn-gold' : 'fintech-card-elevated'}
               style={{
                 maxWidth: '750px',
                 padding: '24px',
                 borderRadius: '16px',
-                background: m.sender === 'user' ? 'var(--primary-indigo)' : 'var(--bg-card-elevated)',
-                color: '#FFF'
+                background: m.sender === 'user' ? 'linear-gradient(135deg, #C9A96A 0%, #B39152 100%)' : '#151515',
+                color: m.sender === 'user' ? '#050505' : '#FFF',
+                border: m.sender === 'user' ? 'none' : '1px solid var(--border-gold)'
               }}
             >
               {m.badge && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span className="badge-indigo" style={{ fontSize: '0.75rem' }}>{m.badge}</span>
+                  <span className="badge-gold" style={{ fontSize: '0.75rem' }}>{m.badge}</span>
                   {m.tools && m.tools.length > 0 && (
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tools: {m.tools.join(', ')}</span>
                   )}
@@ -142,7 +162,7 @@ export const CoachPage: React.FC = () => {
               {m.insights && (
                 <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {m.insights.map((ins, i) => (
-                    <div key={i} style={{ background: 'rgba(5, 9, 20, 0.6)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.88rem', color: 'var(--text-main)', border: '1px solid var(--border-subtle)' }}>
+                    <div key={i} style={{ background: '#101010', padding: '10px 14px', borderRadius: '8px', fontSize: '0.88rem', color: 'var(--text-main)', border: '1px solid var(--border-subtle)' }}>
                       <strong style={{ color: 'var(--accent-gold)' }}>0{i + 1}.</strong> {ins}
                     </div>
                   ))}
@@ -164,7 +184,7 @@ export const CoachPage: React.FC = () => {
       </div>
 
       {/* INPUT FORM */}
-      <form onSubmit={handleSend} className="fintech-card" style={{ padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <form onSubmit={(e) => { e.preventDefault(); handleSend(inputMessage); }} className="fintech-card" style={{ padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
         <input
           type="text"
           placeholder="Ask anything about your money (e.g. 'Can I afford a ₹15 lakh car loan?')..."
@@ -173,7 +193,7 @@ export const CoachPage: React.FC = () => {
           className="fintech-input"
           style={{ border: 'none', background: 'transparent' }}
         />
-        <button type="submit" className="btn-indigo" disabled={loading}>
+        <button type="submit" className="btn-gold" disabled={loading}>
           <Send size={16} />
         </button>
       </form>

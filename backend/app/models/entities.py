@@ -10,6 +10,8 @@ class User(SQLModel, table=True):
     password_hash: str = Field(nullable=False)
     is_active: bool = Field(default=True)
     is_admin: bool = Field(default=False)
+    reset_token_hash: Optional[str] = Field(default=None)
+    reset_token_expires_at: Optional[datetime.datetime] = Field(default=None)
     created_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
     updated_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
 
@@ -122,6 +124,7 @@ class GoalProgress(SQLModel, table=True):
     date: datetime.date = Field(default_factory=datetime.date.today)
     amount_added: float = Field(nullable=False)
     source: str = Field(default="Manual Contribution")
+    note: Optional[str] = Field(default=None)
 
 # 10. Budget Plan Entity
 class BudgetPlan(SQLModel, table=True):

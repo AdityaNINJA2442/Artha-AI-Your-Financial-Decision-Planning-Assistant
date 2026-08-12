@@ -1,46 +1,38 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Color System - Dark Cinematic Fintech */
-  --bg-dark: #050914;
-  --bg-surface-secondary: #0A1020;
-  --bg-card: #0E1628;
-  --bg-card-elevated: #111B30;
-  --bg-sidebar: #060B18;
-
-  /* Accent Identity */
-  --primary-indigo: #4169E1;
-  --primary-indigo-hover: #3559C7;
-  --primary-indigo-glow: rgba(65, 105, 225, 0.25);
+  /* Luxury Color System */
+  --bg-dark: #050505;
+  --bg-card: #101010;
+  --bg-card-elevated: #151515;
+  --bg-charcoal: #1B1B1B;
   
-  --accent-gold: #D7B56D;
-  --accent-gold-glow: rgba(215, 181, 109, 0.2);
-  --accent-amber: #E4A94B;
-  --accent-coral: #E9826A;
-  --accent-teal: #54C7A3;
-  --accent-teal-glow: rgba(84, 199, 163, 0.2);
+  /* Primary Accent: Champagne Gold */
+  --accent-gold: #C9A96A;
+  --accent-gold-light: #D8B878;
+  --accent-gold-dim: rgba(201, 169, 106, 0.15);
+  
+  /* Crimson Accent */
+  --accent-red-primary: #B00000;
+  --accent-red-glow: rgba(101, 0, 0, 0.45);
+  --accent-red-subtle: rgba(176, 0, 0, 0.15);
 
-  /* Typography Colors */
-  --text-main: #F5F7FA;
-  --text-secondary: #9BA7BB;
-  --text-muted: #667085;
-  --text-subtle: #475467;
+  /* Functional Status Colors */
+  --accent-emerald: #C9A96A;
+  --accent-teal: #D8B878;
+  --accent-amber: #E2C98D;
+  --accent-coral: #F28B8B;
+  
+  /* Typography */
+  --text-cream: #F1E8D8;
+  --text-main: #F5F5F5;
+  --text-secondary: #A0A0A0;
+  --text-muted: #686868;
 
-  /* Borders & Dividers */
+  /* Borders */
   --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-light: rgba(255, 255, 255, 0.14);
-  --border-indigo: rgba(65, 105, 225, 0.3);
-  --border-gold: rgba(215, 181, 109, 0.3);
-
-  /* Font Families */
-  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
-
-  /* Radius Tokens */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
+  --border-gold: rgba(201, 169, 106, 0.3);
+  --border-red: rgba(176, 0, 0, 0.4);
 }
 
 * {
@@ -52,100 +44,125 @@
 body {
   background-color: var(--bg-dark);
   color: var(--text-main);
-  font-family: var(--font-body);
-  min-height: 100vh;
-  overflow-x: hidden;
+  font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  position: relative;
+  background-image: 
+    radial-gradient(circle at 50% -5%, rgba(101, 0, 0, 0.35) 0%, rgba(5, 5, 5, 0) 65%),
+    radial-gradient(circle at 85% 30%, rgba(201, 169, 106, 0.05) 0%, rgba(5, 5, 5, 0) 50%);
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-  letter-spacing: -0.025em;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: -0.02em;
+  color: var(--text-cream);
 }
 
-/* Card Surface Styling */
+/* Luxury Cards */
 .fintech-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.fintech-card-interactive {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  cursor: pointer;
-}
-
-.fintech-card-interactive:hover {
-  border-color: var(--border-light);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fintech-card-elevated {
   background: var(--bg-card-elevated);
+  border: 1px solid var(--border-gold);
+  border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+}
+
+.fintech-card-interactive:hover {
+  border-color: var(--accent-gold);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(201, 169, 106, 0.12);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: #222;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-gold);
+}
+
+/* Luxury Input Styling */
+.fintech-input {
+  width: 100%;
+  background: var(--bg-charcoal);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: var(--text-main);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Button System */
-.btn-indigo {
-  background: var(--primary-indigo);
-  color: #FFFFFF;
-  font-weight: 600;
-  font-size: 0.92rem;
-  padding: 12px 22px;
-  border-radius: var(--radius-md);
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 16px var(--primary-indigo-glow);
+.fintech-input:focus {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px rgba(201, 169, 106, 0.15);
 }
 
-.btn-indigo:hover {
-  background: var(--primary-indigo-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 22px rgba(65, 105, 225, 0.4);
-}
-
+/* Luxury Buttons */
 .btn-gold {
-  background: linear-gradient(135deg, #D7B56D 0%, #C49D4F 100%);
-  color: #050914;
+  background: linear-gradient(135deg, #C9A96A 0%, #B39152 100%);
+  color: #050505;
   font-weight: 700;
-  font-size: 0.92rem;
-  padding: 12px 22px;
-  border-radius: var(--radius-md);
   border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 16px var(--accent-gold-glow);
+  box-shadow: 0 4px 15px rgba(201, 169, 106, 0.25);
 }
 
 .btn-gold:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 22px rgba(215, 181, 109, 0.4);
+  box-shadow: 0 6px 20px rgba(201, 169, 106, 0.4);
+}
+
+.btn-indigo {
+  background: linear-gradient(135deg, #C9A96A 0%, #B39152 100%);
+  color: #050505;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(201, 169, 106, 0.25);
+}
+
+.btn-indigo:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(201, 169, 106, 0.4);
 }
 
 .btn-secondary {
   background: rgba(255, 255, 255, 0.04);
-  color: var(--text-main);
-  font-weight: 600;
-  font-size: 0.92rem;
-  padding: 12px 22px;
-  border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
+  color: var(--text-cream);
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 12px 24px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -154,77 +171,19 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--border-light);
+  background: rgba(201, 169, 106, 0.1);
+  border-color: var(--accent-gold);
+  color: #FFF;
 }
 
-.btn-ghost {
-  background: transparent;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.88rem;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-}
-
-.btn-ghost:hover {
-  color: var(--text-main);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-/* Badge System */
-.badge-indigo {
-  background: rgba(65, 105, 225, 0.12);
-  color: #7091F5;
-  border: 1px solid rgba(65, 105, 225, 0.3);
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
+/* Badges */
 .badge-gold {
-  background: rgba(215, 181, 109, 0.12);
-  color: #E2C98D;
-  border: 1px solid rgba(215, 181, 109, 0.3);
-  padding: 4px 10px;
+  background: rgba(201, 169, 106, 0.15);
+  color: var(--accent-gold);
+  border: 1px solid var(--border-gold);
+  padding: 4px 12px;
   border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.badge-teal {
-  background: rgba(84, 199, 163, 0.12);
-  color: #72D8B9;
-  border: 1px solid rgba(84, 199, 163, 0.3);
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.badge-amber {
-  background: rgba(228, 169, 75, 0.12);
-  color: #F3C377;
-  border: 1px solid rgba(228, 169, 75, 0.3);
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -232,66 +191,53 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .badge-coral {
-  background: rgba(233, 130, 106, 0.12);
-  color: #F2A593;
-  border: 1px solid rgba(233, 130, 106, 0.3);
-  padding: 4px 10px;
+  background: var(--accent-red-subtle);
+  color: var(--accent-coral);
+  border: 1px solid var(--border-red);
+  padding: 4px 12px;
   border-radius: 20px;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-/* Inputs */
-.fintech-input {
-  width: 100%;
-  background: rgba(10, 16, 32, 0.8);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  color: var(--text-main);
-  font-size: 0.92rem;
-  outline: none;
-  transition: all 0.2s ease;
+.badge-emerald {
+  background: rgba(201, 169, 106, 0.15);
+  color: var(--accent-gold);
+  border: 1px solid var(--border-gold);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.fintech-input:focus {
-  border-color: var(--primary-indigo);
-  box-shadow: 0 0 0 3px rgba(65, 105, 225, 0.15);
+.badge-indigo {
+  background: rgba(216, 184, 120, 0.15);
+  color: var(--accent-gold-light);
+  border: 1px solid var(--border-gold);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* Animations */
-@keyframes flowPulse {
-  0% { stroke-dashoffset: 200; }
-  100% { stroke-dashoffset: 0; }
-}
-
-@keyframes floatSlow {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
-}
-
-.animate-float {
-  animation: floatSlow 6s ease-in-out infinite;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-dark);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+.badge-amber {
+  background: rgba(226, 201, 141, 0.15);
+  color: var(--accent-amber);
+  border: 1px solid rgba(226, 201, 141, 0.3);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }

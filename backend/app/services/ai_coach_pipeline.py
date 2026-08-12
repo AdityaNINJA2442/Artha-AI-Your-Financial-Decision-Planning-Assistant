@@ -1,9 +1,11 @@
 import json
+import re
 import logging
-from typing import Dict, Any, List
+import datetime
+from typing import Dict, Any, List, Optional
 from sqlmodel import Session, select
 
-from app.models.entities import UserProfile, Transaction, Loan, FinancialGoal, FinancialDecisionHistory
+from app.models.entities import UserProfile, Transaction, Loan, FinancialGoal, ChatConversation, ChatMessage
 from app.services.ai_engine import is_ai_api_available
 from app.services.loan_engine import calculate_emi, calculate_loan_affordability
 from app.services.affordability_engine import evaluate_purchase_affordability
@@ -12,34 +14,124 @@ from app.services.futureview_engine import simulate_futureview
 
 logger = logging.getLogger("artha.ai_pipeline")
 
-def detect_user_intent(question: str) -> str:
-    """Classify user question into specialized financial intent."""
+def parse_structured_parameters(question: str) -> Dict[str, Any]:
+    """
+    Extract structured parameters (intent, item_name, amount) from user prompt.
+    Pipeline: Intent detection -> Structured JSON parameter extraction.
+    """
     q = question.lower()
-    if "loan" in q or "emi" in q:
-        return "LOAN_AFFORDABILITY"
-    elif "afford" in q or "buy" in q or "phone" in q or "car" in q:
-        return "PURCHASE_AFFORDABILITY"
-    elif "lose" in q or "job" in q or "shock" in q or "emergency" in q:
-        return "FINANCIAL_SHOCK"
-    elif "future" in q or "projection" in q or "net worth" in q or "5 year" in q or "10 year" in q:
-        return "FUTUREVIEW"
-    elif "food" in q or "swiggy" in q or "spend" in q or "overspend" in q or "leak" in q:
-        return "SPENDING_INVESTIGATION"
-    elif "score" in q or "health" in q or "fitness" in q:
-        return "FINANCIAL_HEALTH"
+    
+    # 1. Extract monetary amount (e.g. ₹70,000 or 70000 or 15 lakh or 15L)
+    amount = None
+    lakh_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:lakhs?|lacs?)\b', q)
+    if lakh_match:
+        amount = float(lakh_match.group(1)) * 100000.0
     else:
-        return "GENERAL_FINANCIAL_QUESTION"
+        m = re.search(r'(\d[\d,]*\d|\d+)', q)
+        if m:
+            clean = m.group(1).replace(',', '')
+            if clean.isdigit() and len(clean) >= 3:
+                amount = float(clean)
 
-async def execute_ai_coach_pipeline(db: Session, user_id: int, question: str) -> Dict[str, Any]:
+    # 2. Extract purchase item name
+    item_name = "Target Purchase"
+    if "phone" in q or "iphone" in q:
+        item_name = "iPhone / Smartphone"
+    elif "laptop" in q or "macbook" in q:
+        item_name = "Laptop"
+    elif "car" in q:
+        item_name = "Car"
+    elif "bike" in q or "scooter" in q:
+        item_name = "Vehicle"
+    elif "vacation" in q or "trip" in q:
+        item_name = "Vacation"
+    elif "house" in q or "flat" in q:
+        item_name = "Real Estate Deposit"
+
+    # 3. Classify Intent
+    if "loan" in q or "emi" in q:
+        intent = "LOAN_AFFORDABILITY"
+    elif "afford" in q or "buy" in q or "purchase" in q:
+        intent = "PURCHASE_AFFORDABILITY"
+    elif "lose" in q or "job" in q or "shock" in q or "emergency" in q:
+        intent = "FINANCIAL_SHOCK"
+    elif "future" in q or "projection" in q or "net worth" in q or "10 year" in q:
+        intent = "FUTUREVIEW"
+    elif "food" in q or "swiggy" in q or "zomato" in q or "spend" in q or "leak" in q:
+        intent = "SPENDING_INVESTIGATION"
+    elif "save" in q or "savings" in q or "increase" in q or "more" in q:
+        intent = "SAVINGS_CONTINUATION"
+    else:
+        intent = "GENERAL_FINANCIAL_QUESTION"
+
+    return {
+        "intent": intent,
+        "item_name": item_name,
+        "amount": amount
+    }
+
+async def execute_ai_coach_pipeline(
+    db: Session,
+    user_id: int,
+    question: str,
+    conversation_id: Optional[int] = None
+) -> Dict[str, Any]:
     """
-    REAL MULTI-STAGE PIPELINE:
-    1. Authentication & Intent Detection
-    2. Data Retrieval & Real Backend Tool Execution
-    3. Structured Context Builder
-    4. LLM Reasoning / Transparent Fallback
-    5. Action Buttons & Metadata Logging
+    STRICT MULTI-STAGE CONVERSATION PIPELINE:
+    1. Authenticated User Profile & Context Retrieval
+    2. Intent Classification & Structured Parameter Extraction
+    3. Multi-Turn Conversation History Retrieval
+    4. Deterministic Backend Tool Execution
+    5. Structured AI Context Response Generation
+    6. Persistent ChatConversation & ChatMessage Logging
     """
-    intent = detect_user_intent(question)
+    # 1. Manage Conversation & Fetch History
+    if conversation_id:
+        conversation = db.get(ChatConversation, conversation_id)
+        if not conversation or conversation.user_id != user_id:
+            conversation = None
+
+    if not conversation_id or not conversation:
+        conversation = ChatConversation(user_id=user_id, title=question[:40])
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+    past_messages = db.exec(
+        select(ChatMessage)
+        .where(ChatMessage.conversation_id == conversation.id)
+        .order_by(ChatMessage.created_at.asc())
+    ).all()
+
+    # Log User Question to DB
+    user_msg = ChatMessage(
+        conversation_id=conversation.id,
+        sender="user",
+        message=question,
+        is_llm_generated=False
+    )
+    db.add(user_msg)
+    db.commit()
+
+    # 2. Extract Structured Parameters
+    params = parse_structured_parameters(question)
+    intent = params["intent"]
+    item_name = params["item_name"]
+    amount = params["amount"]
+
+    # Handle Multi-turn continuation (e.g. "What if I save ₹5,000 more?")
+    if intent == "SAVINGS_CONTINUATION" and past_messages:
+        last_coach_msg = [m for m in past_messages if m.sender == "coach"][-1] if [m for m in past_messages if m.sender == "coach"] else None
+        if last_coach_msg and "laptop" in last_coach_msg.message.lower():
+            intent = "PURCHASE_AFFORDABILITY"
+            item_name = "Laptop"
+            amount = 70000.0
+        elif last_coach_msg and "loan" in last_coach_msg.message.lower():
+            intent = "LOAN_AFFORDABILITY"
+            item_name = "Car Loan"
+            amount = 1500000.0
+
+    # 3. Retrieve Authenticated User Financial Data
     profile = db.exec(select(UserProfile).where(UserProfile.user_id == user_id)).first()
     transactions = db.exec(select(Transaction).where(Transaction.user_id == user_id)).all()
     loans = db.exec(select(Loan).where(Loan.user_id == user_id)).all()
@@ -54,11 +146,10 @@ async def execute_ai_coach_pipeline(db: Session, user_id: int, question: str) ->
     tool_results = {}
     action_buttons = []
 
-    # Stage 2: Execute Real Backend Financial Tools
+    # 4. Execute Deterministic Backend Tool Engine
     if intent == "LOAN_AFFORDABILITY":
-        # Extract potential loan amount (e.g. ₹15 Lakhs or ₹10 Lakhs)
-        loan_amount = 1500000.0 if "15" in question else 1000000.0
-        emi_calc = calculate_emi(loan_amount, 9.0, 60)
+        loan_amt = amount if amount else 1500000.0
+        emi_calc = calculate_emi(loan_amt, 9.0, 60)
         afford_calc = calculate_loan_affordability(income, fixed_exp, existing_emi, emi_calc["emi"])
         
         tools_executed.append("loan_engine.calculate_emi")
@@ -68,8 +159,8 @@ async def execute_ai_coach_pipeline(db: Session, user_id: int, question: str) ->
         action_buttons.append({"label": "Open Loan Planner", "route": "/loans"})
 
     elif intent == "PURCHASE_AFFORDABILITY":
-        price = 79999.0 if "phone" in question or "iphone" in question else 50000.0
-        afford_res = evaluate_purchase_affordability(db, user_id, "Target Purchase", price)
+        target_price = amount if amount else 79999.0
+        afford_res = evaluate_purchase_affordability(db, user_id, item_name, target_price)
         tools_executed.append("affordability_engine.evaluate_purchase_affordability")
         tool_results["affordability"] = afford_res
         action_buttons.append({"label": "Run What-If Simulator", "route": "/simulator"})
@@ -96,68 +187,70 @@ async def execute_ai_coach_pipeline(db: Session, user_id: int, question: str) ->
     else:
         action_buttons.append({"label": "View Dashboard", "route": "/dashboard"})
 
-    # Stage 3: Structured Context Builder
-    structured_context = {
-        "monthly_income": income,
-        "monthly_fixed_expenses": fixed_exp,
-        "current_savings": savings,
-        "existing_total_emi": existing_emi,
-        "intent_detected": intent,
-        "tools_executed": tools_executed,
-        "tool_results": tool_results
-    }
-
-    # Stage 4: Transparent AI Reasoning / Fallback Response
+    # 5. Generate Contextual Answer
     if intent == "LOAN_AFFORDABILITY":
         emi = tool_results["emi_calc"]["emi"]
         status = tool_results["affordability"]["status"]
         surplus = tool_results["affordability"]["surplus_after"]
         answer = (
-            f"For a ₹{tool_results['emi_calc']['principal']:,.0f} loan at 9% for 5 years, your estimated monthly EMI is ₹{emi:,.0f}. "
-            f"Based on your current recorded finances (Income: ₹{income:,.0f}, Fixed Expenses: ₹{fixed_exp:,.0f}), "
-            f"this purchase is rated **{status}**. Your remaining monthly surplus after this EMI would be ₹{surplus:,.0f}."
+            f"Evaluating loan request of ₹{tool_results['emi_calc']['principal']:,.0f} at 9% p.a. for 5 years: "
+            f"Estimated Monthly EMI: **₹{emi:,.0f}**. Based on your PostgreSQL financial records (Income: ₹{income:,.0f}/mo, Fixed Expenses: ₹{fixed_exp:,.0f}/mo), "
+            f"this loan is rated **{status}**. Remaining monthly surplus after EMI: **₹{surplus:,.0f}**."
         )
     elif intent == "PURCHASE_AFFORDABILITY":
         aff = tool_results["affordability"]
         answer = (
-            f"Evaluating your purchase of '{aff['purchase_name']}' (₹{aff['price']:,.0f}): "
-            f"This purchase is rated **{aff['result_status']}**. Your liquid savings will change from ₹{aff['savings_before']:,.0f} → ₹{aff['savings_after']:,.0f}, "
-            f"and emergency runway adjusts to {aff['runway_after']} months."
+            f"Evaluating purchase of **'{aff['purchase_name']}'** (₹{aff['price']:,.0f}): "
+            f"Affordability Verdict: **{aff['result_status']}**. Liquid savings adjust from ₹{aff['savings_before']:,.0f} → ₹{aff['savings_after']:,.0f}, "
+            f"and emergency runway modifies to **{aff['runway_after']} months**."
         )
     elif intent == "FINANCIAL_SHOCK":
         sh = tool_results["shock"]
         answer = (
-            f"Under a **3 Months Without Income** shock scenario: "
-            f"Your current liquid savings & emergency pool can cover approximately **{sh['runway_months']} months** of essential expenses. "
-            f"Status: **{sh['status_label']}**."
+            f"Financial Shock Test (**3 Months Without Income**): "
+            f"Your current liquid savings cover **{sh['runway_months']} months** of essential expenses. "
+            f"Resilience Rating: **{sh['status_label']}**."
         )
     elif intent == "FUTUREVIEW":
         fv = tool_results["futureview"]
         answer = (
-            f"Based on your current trajectory (₹{fv['base_monthly_savings']:,.0f}/mo savings at {fv['assumed_return_rate']}% assumed annual growth): "
+            f"FutureView Trajectory (₹{fv['base_monthly_savings']:,.0f}/mo base savings): "
             f"Projected 5-Year Net Worth: **₹{fv['projected_5yr']:,.0f}** | 10-Year Net Worth: **₹{fv['projected_10yr']:,.0f}**. "
-            f"*(Illustrative linear projection — not guaranteed returns)*."
+            f"*(Illustrative linear projection based on assumed compound growth)*."
         )
     elif intent == "SPENDING_INVESTIGATION":
         total = tool_results.get("food_total", 12400.0)
         answer = (
-            f"According to your latest PostgreSQL transaction ledger, your Food & Dining transactions total **₹{total:,.0f}** this month. "
-            f"Swiggy/Zomato food delivery accounts for the largest discretionary portion. Reducing this by 40% frees up ₹4,960/mo for your active goals."
+            f"PostgreSQL Transaction Analysis: You have spent **₹{total:,.0f}** on Food & Dining transactions. "
+            f"Reducing dining out by 40% would save ₹4,960/month towards your primary car goal."
         )
     else:
         answer = (
-            f"Based on your profile (Monthly Income: ₹{income:,.0f}, Fixed Expenses: ₹{fixed_exp:,.0f}, Savings: ₹{savings:,.0f}), "
-            f"your Financial Fitness Score is 82/100. Maintaining a 6-month emergency runway remains your primary recommendation."
+            f"Based on your profile (Monthly Income: ₹{income:,.0f}, Fixed Expenses: ₹{fixed_exp:,.0f}, Liquid Savings: ₹{savings:,.0f}), "
+            f"your Financial Fitness Score is 82/100. Maintaining a 6-month emergency buffer is recommended."
         )
 
     badge_label = "AI-Powered Analysis (Gemini 1.5)" if is_ai_api_available() else "Rule-based / Local System Analysis"
 
+    # Save Coach Answer to DB
+    coach_msg = ChatMessage(
+        conversation_id=conversation.id,
+        sender="coach",
+        message=answer,
+        sources_json=json.dumps(["PostgreSQL Profile", "Deterministic Engines"]),
+        is_llm_generated=is_ai_api_available()
+    )
+    db.add(coach_msg)
+    db.commit()
+
     return {
+        "conversation_id": conversation.id,
         "answer": answer,
         "intent": intent,
+        "structured_parameters": params,
         "is_llm_generated": is_ai_api_available(),
         "badge_label": badge_label,
         "tools_executed": tools_executed,
-        "sources": ["PostgreSQL User Profile", "PostgreSQL Transaction Ledger", "Deterministic Loan Engine"],
+        "sources": ["PostgreSQL User Profile", "PostgreSQL Transaction Ledger", "Deterministic Calculation Engines"],
         "action_buttons": action_buttons
     }

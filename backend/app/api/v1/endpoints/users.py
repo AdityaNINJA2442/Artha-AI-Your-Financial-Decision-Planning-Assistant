@@ -104,4 +104,14 @@ def complete_onboarding(
 @router.get("/profile")
 def get_user_profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     profile = db.exec(select(UserProfile).where(UserProfile.user_id == current_user.id)).first()
+    if not profile:
+        import logging
+        logging.getLogger("artha.users").warning(f"UserProfile missing for user_id={current_user.id} ({current_user.email}). Auto-creating defensive fallback profile.")
+        profile = UserProfile(
+            user_id=current_user.id,
+            name=current_user.email.split("@")[0].title()
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
     return profile

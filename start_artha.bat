@@ -1,7 +1,7 @@
 @echo off
 echo ===================================================
 echo   ARTHA AI -- 1-Click Automated Startup Script
-echo   Built by Aditya Prakash
+echo   Built by Hackjack
 echo ===================================================
 echo.
 

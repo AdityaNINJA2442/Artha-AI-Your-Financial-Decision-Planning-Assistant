@@ -5,7 +5,7 @@ import { ShieldCheck, ArrowRight, CheckCircle, User, Briefcase, DollarSign, Targ
 export const OnboardingPage: React.FC = () => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    name: 'Aditya Prakash',
+    name: '',
     age: 28,
     occupation: 'Salaried IT Professional',
     monthlyIncome: 100000,
