@@ -3,7 +3,7 @@ import os
 import requests
 import json
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "http://127.0.0.1:8001"
 
 DEMO_USERS = [
     ("Arjun Mehta", "arjun.demo@artha.ai"),

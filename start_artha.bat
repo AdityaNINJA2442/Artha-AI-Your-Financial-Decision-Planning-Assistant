@@ -8,7 +8,7 @@ echo.
 echo [1/3] Setting up Python Backend Environment...
 cd /d "%~dp0backend"
 python -m pip install -r requirements.txt
-start "Artha AI Backend Server (Port 8000)" cmd /k "python -m uvicorn app.main:app --reload --port 8000"
+start "Artha AI Backend Server (Port 8001)" cmd /k "python -m uvicorn app.main:app --reload --port 8001"
 
 echo.
 echo [2/3] Setting up Node.js Frontend Environment...
@@ -25,6 +25,6 @@ echo.
 echo ===================================================
 echo   ARTHA AI is now running!
 echo   Frontend: http://localhost:5173
-echo   Backend API: http://127.0.0.1:8000/docs
+echo   Backend API: http://127.0.0.1:8001/docs
 echo ===================================================
 pause
