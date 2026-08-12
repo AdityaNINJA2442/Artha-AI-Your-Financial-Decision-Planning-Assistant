@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
@@ -26,7 +26,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user_id: int
     email: str
-    name: str
+    name: Optional[str] = "User"
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     """Dependency to retrieve current authenticated user from JWT token."""
@@ -81,7 +81,7 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
             "token_type": "bearer",
             "user_id": new_user.id,
             "email": new_user.email,
-            "name": req.name
+            "name": req.name or new_user.email.split("@")[0].title()
         }
     except HTTPException:
         raise
@@ -98,7 +98,7 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Incorrect email or password")
 
         profile = db.exec(select(UserProfile).where(UserProfile.user_id == user.id)).first()
-        name = profile.name if profile else "User"
+        user_name = profile.name if (profile and profile.name) else user.email.split("@")[0].title()
 
         access_token = create_access_token(subject=user.id)
         refresh_token = create_refresh_token(subject=user.id)
@@ -109,7 +109,7 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
             "token_type": "bearer",
             "user_id": user.id,
             "email": user.email,
-            "name": name
+            "name": user_name
         }
     except HTTPException:
         raise
