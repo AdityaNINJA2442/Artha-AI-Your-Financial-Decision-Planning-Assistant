@@ -1,10 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { Wallet, Search, Plus, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, Plus, ArrowUpRight, ArrowDownLeft, X, Filter, ArrowUpDown, AlertTriangle, CheckCircle } from 'lucide-react';
+
+const CATEGORY_ID_MAP: Record<number, string> = {
+  1: "Food & Dining",
+  2: "Groceries",
+  3: "Rent & Housing",
+  4: "Utilities & Bills",
+  5: "Subscriptions",
+  6: "Shopping & Lifestyle",
+  7: "Travel & Transport",
+  8: "Medical & Health",
+  9: "Investments & SIP",
+  10: "Salary & Income",
+  11: "Other Expenses"
+};
 
 export const TransactionsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'merchant-asc'>('date-desc');
+  const [rawTransactions, setRawTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Add Transaction Modal State
@@ -26,10 +41,10 @@ export const TransactionsPage: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         const items = Array.isArray(data) ? data : (data.items || []);
-        setTransactions(items.map((t: any) => ({
+        setRawTransactions(items.map((t: any) => ({
           id: t.id,
           merchant: t.merchant,
-          category: t.category_name || (t.type === 'Income' ? 'Income' : 'General'),
+          category: t.category_name || CATEGORY_ID_MAP[t.category_id] || (t.type === 'Income' ? 'Salary & Income' : 'Other Expenses'),
           amount: t.amount,
           date: t.date,
           type: t.type || 'Expense',
@@ -37,7 +52,7 @@ export const TransactionsPage: React.FC = () => {
         })));
       }
     } catch (e) {
-      // Keep empty list fallback
+      // Fallback
     } finally {
       setLoading(false);
     }
@@ -74,13 +89,13 @@ export const TransactionsPage: React.FC = () => {
         const newTx = {
           id: created.id || Date.now(),
           merchant: created.merchant,
-          category: categoryName,
+          category: created.category_name || categoryName,
           amount: created.amount,
           date: created.date || txDate,
           type: created.type || type,
           method: created.payment_method || paymentMethod
         };
-        setTransactions(prev => [newTx, ...prev]);
+        setRawTransactions(prev => [newTx, ...prev]);
         setIsModalOpen(false);
         setMerchant('');
         setAmount('');
@@ -92,11 +107,83 @@ export const TransactionsPage: React.FC = () => {
     }
   };
 
-  const filtered = transactions.filter(t => {
-    const matchesSearch = t.merchant?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'All' || t.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  // PURE DERIVED STATE: Filter and Sort without EVER mutating rawTransactions
+  const displayTransactions = useMemo(() => {
+    return rawTransactions
+      .filter(t => {
+        const matchesSearch = !searchTerm ||
+          t.merchant?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          t.category?.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        let matchesCategory = true;
+        if (categoryFilter !== 'All') {
+          if (categoryFilter === 'Income') {
+            matchesCategory = t.type === 'Income' || t.category === 'Salary & Income';
+          } else if (categoryFilter === 'Food & Dining') {
+            matchesCategory = t.category === 'Food & Dining' || t.category === 'Groceries';
+          } else if (categoryFilter === 'Shopping') {
+            matchesCategory = t.category === 'Shopping & Lifestyle' || t.category === 'Subscriptions' || t.category === 'Shopping';
+          } else if (categoryFilter === 'Utilities') {
+            matchesCategory = t.category === 'Utilities & Bills' || t.category === 'Rent & Housing';
+          } else {
+            matchesCategory = t.category === categoryFilter;
+          }
+        }
+
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'date-asc') return new Date(a.date).getTime() - new Date(b.date).getTime();
+        if (sortBy === 'amount-desc') return b.amount - a.amount;
+        if (sortBy === 'amount-asc') return a.amount - b.amount;
+        if (sortBy === 'merchant-asc') return a.merchant.localeCompare(b.merchant);
+        // Default: date-desc
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+  }, [rawTransactions, searchTerm, categoryFilter, sortBy]);
+
+  // Contextual Financial Overspending & Alert Sentinel Analysis
+  const expenseList = useMemo(() => rawTransactions.filter(t => t.type === 'Expense'), [rawTransactions]);
+  const totalExpenseSum = useMemo(() => expenseList.reduce((acc, t) => acc + t.amount, 0), [expenseList]);
+
+  const categoryTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    expenseList.forEach(t => {
+      const cat = t.category || 'Other Expenses';
+      totals[cat] = (totals[cat] || 0) + t.amount;
+    });
+    return totals;
+  }, [expenseList]);
+
+  const alerts = useMemo(() => {
+    const list: { title: string; desc: string; severity: 'high' | 'medium' }[] = [];
+    Object.entries(categoryTotals).forEach(([cat, amt]) => {
+      const share = totalExpenseSum > 0 ? (amt / totalExpenseSum) * 100 : 0;
+      if ((cat === 'Food & Dining' || cat === 'Groceries') && share > 25) {
+        list.push({
+          title: `High ${cat} Overspending`,
+          desc: `${cat} expenses total ₹${amt.toLocaleString('en-IN')} (${share.toFixed(1)}% of overall expenses).`,
+          severity: 'high'
+        });
+      } else if ((cat === 'Shopping & Lifestyle' || cat === 'Subscriptions') && share > 20) {
+        list.push({
+          title: `Shopping & Subscriptions Surge`,
+          desc: `Discretionary shopping totals ₹${amt.toLocaleString('en-IN')} (${share.toFixed(1)}% of overall expenses).`,
+          severity: 'medium'
+        });
+      }
+    });
+
+    const spikeTx = expenseList.find(t => t.amount >= 15000);
+    if (spikeTx) {
+      list.push({
+        title: `Single Expense Spike: ${spikeTx.merchant}`,
+        desc: `Large transaction outflow of ₹${spikeTx.amount.toLocaleString('en-IN')} recorded on ${spikeTx.date}.`,
+        severity: 'medium'
+      });
+    }
+    return list;
+  }, [categoryTotals, totalExpenseSum, expenseList]);
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 24px', background: 'var(--bg-dark)' }}>
@@ -104,21 +191,57 @@ export const TransactionsPage: React.FC = () => {
       {/* HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-cream)' }}>Transaction Ledger</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Real PostgreSQL transaction feed with automatic merchant categorization</p>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-cream)' }}>Transaction Ledger & Overspending Sentinel</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Real PostgreSQL transaction feed with category filter, sorting, and contextual risk alerts</p>
         </div>
         <button onClick={() => setIsModalOpen(true)} className="btn-gold">
           <Plus size={16} /> Add Transaction
         </button>
       </div>
 
-      {/* FILTER BAR */}
-      <div className="fintech-card" style={{ padding: '16px 20px', marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* CONTEXTUAL OVERSPENDING ALERT BANNER */}
+      {alerts.length > 0 ? (
+        <div style={{ marginBottom: '28px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {alerts.map((alt, idx) => (
+            <div 
+              key={idx}
+              className={alt.severity === 'high' ? 'fintech-card-elevated' : 'fintech-card'}
+              style={{
+                padding: '16px 20px',
+                borderLeft: alt.severity === 'high' ? '4px solid #F28B8B' : '4px solid #C9A96A',
+                background: alt.severity === 'high' ? 'rgba(176, 0, 0, 0.12)' : 'rgba(201, 169, 106, 0.08)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '14px'
+              }}
+            >
+              <AlertTriangle size={20} color={alt.severity === 'high' ? 'var(--accent-coral)' : 'var(--accent-gold)'} style={{ marginTop: '2px', flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-cream)', marginBottom: '2px' }}>{alt.title}</div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{alt.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="fintech-card" style={{ padding: '16px 20px', marginBottom: '28px', display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '4px solid var(--accent-gold)' }}>
+          <CheckCircle size={20} color="var(--accent-gold)" />
+          <div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-cream)' }}>Healthy Cash Flow Distribution</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No high category overspending or anomalous expense spikes detected.</div>
+          </div>
+        </div>
+      )}
+
+      {/* FILTER & SORT BAR */}
+      <div className="fintech-card" style={{ padding: '18px 22px', marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+        
+        {/* SEARCH INPUT */}
         <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
           <Search size={18} color="#686868" style={{ position: 'absolute', left: '12px', top: '12px' }} />
           <input
             type="text"
-            placeholder="Search merchant or description..."
+            placeholder="Search merchant or category..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="fintech-input"
@@ -126,18 +249,43 @@ export const TransactionsPage: React.FC = () => {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {['All', 'Food & Dining', 'Utilities & Bills', 'Investments', 'Travel', 'Income'].map(c => (
-            <button
-              key={c}
-              onClick={() => setCategoryFilter(c)}
-              className={categoryFilter === c ? 'btn-gold' : 'btn-secondary'}
-              style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-            >
-              {c}
-            </button>
-          ))}
+        {/* CATEGORY FILTER SELECTOR */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <Filter size={16} color="var(--accent-gold)" />
+          <select 
+            value={categoryFilter} 
+            onChange={e => setCategoryFilter(e.target.value)}
+            className="fintech-input"
+            style={{ minWidth: '160px', padding: '9px 12px', fontSize: '0.85rem', cursor: 'pointer' }}
+          >
+            <option value="All">All Categories</option>
+            <option value="Food & Dining">Food & Dining</option>
+            <option value="Utilities">Utilities & Housing</option>
+            <option value="Shopping">Shopping & Lifestyle</option>
+            <option value="Travel & Transport">Travel & Transport</option>
+            <option value="Investments & SIP">Investments & SIP</option>
+            <option value="Income">Salary & Income</option>
+            <option value="Other Expenses">Other Expenses</option>
+          </select>
         </div>
+
+        {/* SORT BY SELECTOR */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <ArrowUpDown size={16} color="var(--accent-gold)" />
+          <select 
+            value={sortBy} 
+            onChange={e => setSortBy(e.target.value as any)}
+            className="fintech-input"
+            style={{ minWidth: '180px', padding: '9px 12px', fontSize: '0.85rem', cursor: 'pointer' }}
+          >
+            <option value="date-desc">Date: Newest First</option>
+            <option value="date-asc">Date: Oldest First</option>
+            <option value="amount-desc">Amount: Highest First</option>
+            <option value="amount-asc">Amount: Lowest First</option>
+            <option value="merchant-asc">Merchant: A to Z</option>
+          </select>
+        </div>
+
       </div>
 
       {/* LEDGER TABLE */}
@@ -154,14 +302,14 @@ export const TransactionsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {displayTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    {loading ? 'Loading transactions from PostgreSQL...' : 'No transactions recorded yet. Click "+ Add Transaction" to create one.'}
+                    {loading ? 'Loading transactions from PostgreSQL...' : 'No matching transactions found.'}
                   </td>
                 </tr>
               ) : (
-                filtered.map(t => (
+                displayTransactions.map(t => (
                   <tr key={t.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }}>
                     <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--text-cream)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -250,12 +398,16 @@ export const TransactionsPage: React.FC = () => {
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Category</label>
                   <select value={categoryName} onChange={e => setCategoryName(e.target.value)} className="fintech-input" style={{ background: '#101010', color: '#FFF' }}>
                     <option value="Food & Dining">Food & Dining</option>
+                    <option value="Groceries">Groceries</option>
+                    <option value="Rent & Housing">Rent & Housing</option>
                     <option value="Utilities & Bills">Utilities & Bills</option>
-                    <option value="Shopping">Shopping</option>
-                    <option value="Travel">Travel</option>
-                    <option value="Investments">Investments</option>
-                    <option value="Income">Income</option>
-                    <option value="Other">Other</option>
+                    <option value="Subscriptions">Subscriptions</option>
+                    <option value="Shopping & Lifestyle">Shopping & Lifestyle</option>
+                    <option value="Travel & Transport">Travel & Transport</option>
+                    <option value="Medical & Health">Medical & Health</option>
+                    <option value="Investments & SIP">Investments & SIP</option>
+                    <option value="Salary & Income">Salary & Income</option>
+                    <option value="Other Expenses">Other Expenses</option>
                   </select>
                 </div>
 
@@ -263,9 +415,9 @@ export const TransactionsPage: React.FC = () => {
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Payment Method</label>
                   <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="fintech-input" style={{ background: '#101010', color: '#FFF' }}>
                     <option value="UPI">UPI</option>
-                    <option value="CreditCard">Credit Card</option>
+                    <option value="Credit Card">Credit Card</option>
                     <option value="NetBanking">Net Banking</option>
-                    <option value="AutoDebit">Auto Debit</option>
+                    <option value="Auto Debit">Auto Debit</option>
                   </select>
                 </div>
               </div>

@@ -61,78 +61,79 @@ def seed_database(db: Session):
                 ))
     db.commit()
 
-    # 3. Seed Demo User Account (aditya@artha.ai)
-    demo_user = db.exec(select(User).where(User.email == "aditya@artha.ai")).first()
-    if not demo_user:
-        demo_user = User(
-            email="aditya@artha.ai",
-            password_hash=get_password_hash("password123"),
-            is_active=True,
-            is_admin=True
-        )
-        db.add(demo_user)
-        db.commit()
-        db.refresh(demo_user)
+    # 3. Seed All 10 Synthetic Demo User Accounts
+    demo_accounts = [
+        ("Arjun Mehta", "arjun.demo@artha.ai"),
+        ("Riya Sharma", "riya.demo@artha.ai"),
+        ("Rahul Verma", "rahul.demo@artha.ai"),
+        ("Neha Kapoor", "neha.demo@artha.ai"),
+        ("Vikram Singh", "vikram.demo@artha.ai"),
+        ("Ananya Das", "ananya.demo@artha.ai"),
+        ("Karan Joshi", "karan.demo@artha.ai"),
+        ("Priya Nair", "priya.demo@artha.ai"),
+        ("Aman Gupta", "aman.demo@artha.ai"),
+        ("Sneha Iyer", "sneha.demo@artha.ai"),
+    ]
 
-        # Profile
-        profile = UserProfile(
-            user_id=demo_user.id,
-            name="Aditya Prakash",
-            age=28,
-            occupation="Salaried",
-            country="India",
-            city="Bengaluru",
-            annual_income=1200000.0,
-            monthly_income=100000.0,
-            family_status="Single",
-            monthly_fixed_expenses=40000.0,
-            current_savings=250000.0,
-            current_investments=120000.0,
-            emergency_fund=80000.0,
-            risk_preference="Moderate"
-        )
-        db.add(profile)
+    for d_name, d_email in demo_accounts:
+        user = db.exec(select(User).where(User.email == d_email)).first()
+        if not user:
+            user = User(
+                email=d_email,
+                password_hash=get_password_hash("Demo@123"),
+                is_active=True
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
 
-        # Transactions
-        transactions = [
-            Transaction(user_id=demo_user.id, merchant="Salary Credit - TechCorp", amount=100000.0, category_id=cat_map["Salary & Income"], type="Income", payment_method="NetBanking"),
-            Transaction(user_id=demo_user.id, merchant="House Rent - Landlord", amount=20000.0, category_id=cat_map["Rent & Housing"], type="Expense", payment_method="NetBanking"),
-            Transaction(user_id=demo_user.id, merchant="SWIGGY Gourmet", amount=12400.0, category_id=cat_map["Food & Dining"], type="Expense", payment_method="UPI"),
-            Transaction(user_id=demo_user.id, merchant="Zerodha Nifty SIP", amount=15000.0, category_id=cat_map["Investments & SIP"], type="Expense", payment_method="UPI"),
-            Transaction(user_id=demo_user.id, merchant="Blinkit Quick Grocery", amount=8500.0, category_id=cat_map["Groceries"], type="Expense", payment_method="UPI"),
-            Transaction(user_id=demo_user.id, merchant="BESCOM Electricity Bill", amount=2300.0, category_id=cat_map["Utilities & Bills"], type="Expense", payment_method="UPI"),
-            Transaction(user_id=demo_user.id, merchant="Amazon India Shopping", amount=4200.0, category_id=cat_map["Shopping & Lifestyle"], type="Expense", payment_method="Credit Card"),
-            Transaction(user_id=demo_user.id, merchant="Netflix India", amount=649.0, category_id=cat_map["Subscriptions"], type="Expense", payment_method="Credit Card"),
-            Transaction(user_id=demo_user.id, merchant="ChatGPT Plus", amount=1999.0, category_id=cat_map["Subscriptions"], type="Expense", payment_method="Credit Card")
-        ]
-        for tx in transactions:
-            db.add(tx)
+            # Profile
+            profile = UserProfile(
+                user_id=user.id,
+                name=d_name,
+                monthly_income=120000.0,
+                annual_income=1440000.0,
+                monthly_fixed_expenses=45000.0,
+                current_savings=300000.0,
+                emergency_fund=100000.0
+            )
+            db.add(profile)
 
-        # Goal
-        car_goal = FinancialGoal(
-            user_id=demo_user.id,
-            goal_name="Car Purchase Fund",
-            target_amount=1000000.0,
-            current_amount=240000.0,
-            target_date=datetime.date(2028, 12, 31),
-            priority="High",
-            monthly_contribution=15000.0,
-            status="In Progress"
-        )
-        db.add(car_goal)
+            # Default Goal
+            goal = FinancialGoal(
+                user_id=user.id,
+                goal_name="Emergency Fund Pool",
+                target_amount=500000.0,
+                current_amount=100000.0,
+                target_date=datetime.date(2028, 12, 31),
+                priority="High",
+                monthly_contribution=15000.0,
+                status="In Progress"
+            )
+            db.add(goal)
 
-        # Financial Score
-        score = FinancialScore(
-            user_id=demo_user.id,
-            overall_score=82,
-            savings_ratio_score=18,
-            emergency_fund_score=14,
-            debt_burden_score=15,
-            investment_ratio_score=15,
-            spending_discipline_score=10,
-            subscription_burden_score=10,
-            computed_at=datetime.datetime.utcnow()
-        )
-        db.add(score)
+            # Default Score
+            score = FinancialScore(
+                user_id=user.id,
+                overall_score=80,
+                savings_ratio_score=16,
+                emergency_fund_score=15,
+                debt_burden_score=16,
+                investment_ratio_score=15,
+                spending_discipline_score=10,
+                subscription_burden_score=8,
+                computed_at=datetime.datetime.utcnow()
+            )
+            db.add(score)
+            db.commit()
 
-        db.commit()
+        # Check and populate sample transactions if user has 0 transactions
+        existing_txs = db.exec(select(Transaction).where(Transaction.user_id == user.id)).all()
+        if len(existing_txs) == 0:
+            tx1 = Transaction(user_id=user.id, merchant="Salary Credit - TechCorp", amount=120000.0, category_id=cat_map.get("Salary & Income", 10), type="Income", payment_method="NetBanking")
+            tx2 = Transaction(user_id=user.id, merchant="Swiggy Gourmet", amount=1450.0, category_id=cat_map.get("Food & Dining", 1), type="Expense", payment_method="UPI")
+            tx3 = Transaction(user_id=user.id, merchant="Amazon India", amount=4200.0, category_id=cat_map.get("Shopping & Lifestyle", 6), type="Expense", payment_method="CreditCard")
+            tx4 = Transaction(user_id=user.id, merchant="Blinkit Quick Grocery", amount=2800.0, category_id=cat_map.get("Groceries", 2), type="Expense", payment_method="UPI")
+            tx5 = Transaction(user_id=user.id, merchant="BESCOM Electricity Bill", amount=1850.0, category_id=cat_map.get("Utilities & Bills", 4), type="Expense", payment_method="AutoDebit")
+            db.add_all([tx1, tx2, tx3, tx4, tx5])
+            db.commit()

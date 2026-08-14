@@ -94,6 +94,7 @@ export const GoalsPage: React.FC = () => {
         setIsCreateOpen(false);
         setGoalName('');
         setTargetAmount('');
+        fetchGoals();
       }
     } catch (err) {
       console.error("Failed to create goal", err);

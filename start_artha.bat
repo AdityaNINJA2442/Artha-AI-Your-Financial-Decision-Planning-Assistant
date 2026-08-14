@@ -5,19 +5,24 @@ echo   Built by Hackjack
 echo ===================================================
 echo.
 
-echo [1/3] Setting up Python Backend Environment...
-cd /d "%~dp0backend"
-python -m pip install -r requirements.txt
-start "Artha AI Backend Server (Port 8001)" cmd /k "python -m uvicorn app.main:app --reload --port 8001"
+echo [1/3] Clearing stale background ports...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8001 ^| findstr LISTEN') do taskkill /F /PID %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5173 ^| findstr LISTEN') do taskkill /F /PID %%a >nul 2>&1
 
 echo.
-echo [2/3] Setting up Node.js Frontend Environment...
+echo [2/3] Setting up Python Backend Environment...
+cd /d "%~dp0backend"
+python -m pip install -r requirements.txt
+start "Artha AI Backend Server (Port 8001)" cmd /k "python -m uvicorn app.main:app --host 127.0.0.1 --port 8001"
+
+echo.
+echo [3/3] Setting up Node.js Frontend Environment...
 cd /d "%~dp0frontend"
 call npm install
 start "Artha AI Frontend App (Port 5173)" cmd /k "npm run dev"
 
 echo.
-echo [3/3] Opening ARTHA AI in Browser...
+echo [4/4] Opening ARTHA AI in Browser...
 timeout /t 3 >nul
 start http://localhost:5173
 

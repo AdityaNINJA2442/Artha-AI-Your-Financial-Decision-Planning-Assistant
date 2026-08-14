@@ -5,16 +5,16 @@ import { TrendingUp, ShieldCheck, ArrowRight, CreditCard, Sparkles, Zap } from '
 export const DashboardPage: React.FC = () => {
   const [profile, setProfile] = useState<any>({
     name: 'User',
-    monthlyIncome: 100000,
-    monthlyFixedExpenses: 40000,
-    currentSavings: 250000,
-    emergencyFund: 80000,
-    overallScore: 82
+    monthlyIncome: 0,
+    monthlyFixedExpenses: 0,
+    currentSavings: 0,
+    emergencyFund: 0,
+    overallScore: 50
   });
 
-  const [expensesTotal, setExpensesTotal] = useState(72400);
-  const [activeLoansCount, setActiveLoansCount] = useState(1);
-  const [totalEmiAmount, setTotalEmiAmount] = useState(20758);
+  const [expensesTotal, setExpensesTotal] = useState(0);
+  const [activeLoansCount, setActiveLoansCount] = useState(0);
+  const [totalEmiAmount, setTotalEmiAmount] = useState(0);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -32,10 +32,10 @@ export const DashboardPage: React.FC = () => {
             setProfile((prev: any) => ({
               ...prev,
               name: profData.name || prev.name,
-              monthlyIncome: profData.monthly_income || prev.monthlyIncome,
-              monthlyFixedExpenses: profData.monthly_fixed_expenses || prev.monthlyFixedExpenses,
-              currentSavings: profData.current_savings || prev.currentSavings,
-              emergencyFund: profData.emergency_fund || prev.emergencyFund
+              monthlyIncome: profData.monthly_income ?? prev.monthlyIncome,
+              monthlyFixedExpenses: profData.monthly_fixed_expenses ?? prev.monthlyFixedExpenses,
+              currentSavings: profData.current_savings ?? prev.currentSavings,
+              emergencyFund: profData.emergency_fund ?? prev.emergencyFund
             }));
           }
         }
@@ -49,23 +49,21 @@ export const DashboardPage: React.FC = () => {
           if (scoreData && typeof scoreData === 'object') {
             setProfile((prev: any) => ({
               ...prev,
-              overallScore: scoreData.overall_score || prev.overallScore
+              overallScore: scoreData.overall_score ?? prev.overallScore
             }));
           }
         }
 
-        // Fetch Transactions to compute actual spending
         const txRes = await fetch('/api/v1/transactions/', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (txRes.ok) {
           const txData = await txRes.json();
-          if (Array.isArray(txData)) {
-            const expSum = txData
-              .filter((t: any) => t.type === 'Expense')
-              .reduce((acc: number, t: any) => acc + t.amount, 0);
-            if (expSum > 0) setExpensesTotal(expSum);
-          }
+          const txList = Array.isArray(txData) ? txData : (txData && Array.isArray(txData.items) ? txData.items : []);
+          const expSum = txList
+            .filter((t: any) => t.type === 'Expense')
+            .reduce((acc: number, t: any) => acc + t.amount, 0);
+          setExpensesTotal(expSum);
         }
 
         // Fetch Loans
@@ -77,11 +75,11 @@ export const DashboardPage: React.FC = () => {
           if (Array.isArray(loanData)) {
             setActiveLoansCount(loanData.length);
             const totalEmi = loanData.reduce((acc: number, l: any) => acc + l.emi_amount, 0);
-            if (totalEmi > 0) setTotalEmiAmount(totalEmi);
+            setTotalEmiAmount(totalEmi);
           }
         }
       } catch (e) {
-        // Fallback for presentation
+        // Safe error handling
       }
     };
 

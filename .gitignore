@@ -220,3 +220,4 @@ __marimo__/
 .streamlit/secrets.toml
 frontend/dist/
 frontend/node_modules/
+backend/artha_ai.db

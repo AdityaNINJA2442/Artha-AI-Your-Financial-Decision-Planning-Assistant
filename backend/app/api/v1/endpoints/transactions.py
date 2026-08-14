@@ -40,10 +40,19 @@ def get_transactions(
     query = query.order_by(col(Transaction.date).desc()).offset(offset).limit(limit)
     transactions = db.exec(query).all()
     
+    categories = db.exec(select(Category)).all()
+    cat_map = {c.id: c.name for c in categories}
+    
+    items = []
+    for t in transactions:
+        t_dict = t.dict()
+        t_dict["category_name"] = cat_map.get(t.category_id, "Other Expenses")
+        items.append(t_dict)
+    
     total = len(db.exec(select(Transaction).where(Transaction.user_id == current_user.id)).all())
     
     return {
-        "items": transactions,
+        "items": items,
         "total": total,
         "limit": limit,
         "offset": offset
