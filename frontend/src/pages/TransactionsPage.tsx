@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, ArrowUpRight, ArrowDownLeft, X, Filter, ArrowUpDown, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Search, Plus, ArrowUpRight, ArrowDownLeft, X, Filter, ArrowUpDown, AlertTriangle, CheckCircle, Trash2 } from 'lucide-react';
 
 const CATEGORY_ID_MAP: Record<number, string> = {
   1: "Food & Dining",
@@ -79,6 +79,7 @@ export const TransactionsPage: React.FC = () => {
           merchant,
           amount: parseFloat(amount),
           type,
+          category_name: categoryName,
           payment_method: paymentMethod,
           date: txDate
         })
@@ -104,6 +105,22 @@ export const TransactionsPage: React.FC = () => {
       console.error("Failed to add transaction", err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteTransaction = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this transaction?")) return;
+    try {
+      const token = localStorage.getItem('artha_token') || '';
+      const res = await fetch(`/api/v1/transactions/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setRawTransactions(prev => prev.filter(t => t.id !== id));
+      }
+    } catch (err) {
+      console.error("Failed to delete transaction", err);
     }
   };
 
@@ -299,12 +316,13 @@ export const TransactionsPage: React.FC = () => {
                 <th style={{ padding: '16px 20px' }}>Date</th>
                 <th style={{ padding: '16px 20px' }}>Payment Method</th>
                 <th style={{ padding: '16px 20px', textAlign: 'right' }}>Amount</th>
+                <th style={{ padding: '16px 20px', textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {displayTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
                     {loading ? 'Loading transactions from PostgreSQL...' : 'No matching transactions found.'}
                   </td>
                 </tr>
@@ -326,6 +344,15 @@ export const TransactionsPage: React.FC = () => {
                     <td style={{ padding: '16px 20px', color: 'var(--text-secondary)' }}>{t.method}</td>
                     <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 700, color: t.type === 'Income' ? 'var(--accent-gold)' : 'var(--text-cream)' }}>
                       {t.type === 'Income' ? '+' : '−'}₹{t.amount.toLocaleString('en-IN')}
+                    </td>
+                    <td style={{ padding: '16px 20px', textAlign: 'center' }}>
+                      <button 
+                        onClick={() => handleDeleteTransaction(t.id)}
+                        title="Delete Transaction"
+                        style={{ background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.2)', borderRadius: '6px', padding: '6px', color: 'var(--accent-coral)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </td>
                   </tr>
                 ))

@@ -60,6 +60,15 @@ export const OnboardingPage: React.FC = () => {
 
   const navigate = useNavigate();
 
+  const handleNumberInput = (field: keyof typeof formData, rawVal: string) => {
+    if (rawVal === '') {
+      setFormData(prev => ({ ...prev, [field]: '' as any }));
+    } else {
+      const parsed = Number(rawVal);
+      setFormData(prev => ({ ...prev, [field]: isNaN(parsed) ? '' as any : parsed }));
+    }
+  };
+
   const handleNext = async () => {
     if (step < 4) {
       setStep(step + 1);
@@ -128,7 +137,22 @@ export const OnboardingPage: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Age</label>
-                  <input type="number" min="18" className="fintech-input" value={formData.age} onChange={e => setFormData({ ...formData, age: Math.max(18, Number(e.target.value)) })} />
+                  <input 
+                    type="number" 
+                    min="18" 
+                    className="fintech-input" 
+                    value={formData.age} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, age: val === '' ? '' as any : Number(val) });
+                    }}
+                    onBlur={() => {
+                      const num = Number(formData.age);
+                      if (!formData.age || isNaN(num) || num < 18) {
+                        setFormData({ ...formData, age: 18 });
+                      }
+                    }}
+                  />
                 </div>
                 <div>
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Occupation Type</label>
@@ -156,14 +180,28 @@ export const OnboardingPage: React.FC = () => {
                   Monthly In-Hand Net Income (₹/month)
                   <InfoTooltip title="Monthly In-Hand Net Income" text="Your total take-home salary or net income received every month after taxes." example="Example: ₹80,000 per month → enter 80000" />
                 </label>
-                <input type="number" min="0" className="fintech-input" value={formData.monthlyIncome} onChange={e => setFormData({ ...formData, monthlyIncome: Math.max(0, Number(e.target.value)) })} />
+                <input 
+                  type="number" 
+                  min="0" 
+                  className="fintech-input" 
+                  value={formData.monthlyIncome} 
+                  onChange={e => handleNumberInput('monthlyIncome', e.target.value)} 
+                  onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+                />
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                   Monthly Fixed Essential Expenses (₹/month)
                   <InfoTooltip title="Monthly Essential Expenses" text="Essential living expenses like rent, utilities, groceries, and insurance." example="Example: ₹35,000 per month → enter 35000" />
                 </label>
-                <input type="number" min="0" className="fintech-input" value={formData.monthlyFixedExpenses} onChange={e => setFormData({ ...formData, monthlyFixedExpenses: Math.max(0, Number(e.target.value)) })} />
+                <input 
+                  type="number" 
+                  min="0" 
+                  className="fintech-input" 
+                  value={formData.monthlyFixedExpenses} 
+                  onChange={e => handleNumberInput('monthlyFixedExpenses', e.target.value)} 
+                  onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+                />
               </div>
             </div>
           </div>
@@ -182,14 +220,28 @@ export const OnboardingPage: React.FC = () => {
                     Liquid Savings (₹)
                     <InfoTooltip title="Liquid Savings" text="Money you can access quickly, such as bank savings or cash. Do not include house or car." example="Example: ₹40,000 available in savings → enter 40000" />
                   </label>
-                  <input type="number" min="0" className="fintech-input" value={formData.currentSavings} onChange={e => setFormData({ ...formData, currentSavings: Math.max(0, Number(e.target.value)) })} />
+                  <input 
+                    type="number" 
+                    min="0" 
+                    className="fintech-input" 
+                    value={formData.currentSavings} 
+                    onChange={e => handleNumberInput('currentSavings', e.target.value)} 
+                    onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+                  />
                 </div>
                 <div>
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                     Emergency Fund Pool (₹)
                     <InfoTooltip title="Emergency Fund Pool" text="Money specifically kept aside for unexpected situations like medical or job loss." example="Example: ₹1,00,000 reserved for emergencies → enter 100000" />
                   </label>
-                  <input type="number" min="0" className="fintech-input" value={formData.emergencyFund} onChange={e => setFormData({ ...formData, emergencyFund: Math.max(0, Number(e.target.value)) })} />
+                  <input 
+                    type="number" 
+                    min="0" 
+                    className="fintech-input" 
+                    value={formData.emergencyFund} 
+                    onChange={e => handleNumberInput('emergencyFund', e.target.value)} 
+                    onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+                  />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -198,14 +250,28 @@ export const OnboardingPage: React.FC = () => {
                     Active Loans Count
                     <InfoTooltip title="Active Loans Count" text="Number of loans you are currently repaying (e.g. Car + Personal Loan)." example="Example: Car Loan + Personal Loan → enter 2" />
                   </label>
-                  <input type="number" min="0" className="fintech-input" value={formData.existingLoansCount} onChange={e => setFormData({ ...formData, existingLoansCount: Math.max(0, Number(e.target.value)) })} />
+                  <input 
+                    type="number" 
+                    min="0" 
+                    className="fintech-input" 
+                    value={formData.existingLoansCount} 
+                    onChange={e => handleNumberInput('existingLoansCount', e.target.value)} 
+                    onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+                  />
                 </div>
                 <div>
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                     Total Existing EMI (₹/mo)
                     <InfoTooltip title="Total Existing EMI" text="Total amount you pay every month toward all active loans combined." example="Example: Car EMI ₹12,000 + Personal EMI ₹5,000 → enter 17000" />
                   </label>
-                  <input type="number" min="0" className="fintech-input" value={formData.existingTotalEmi} onChange={e => setFormData({ ...formData, existingTotalEmi: Math.max(0, Number(e.target.value)) })} />
+                  <input 
+                    type="number" 
+                    min="0" 
+                    className="fintech-input" 
+                    value={formData.existingTotalEmi} 
+                    onChange={e => handleNumberInput('existingTotalEmi', e.target.value)} 
+                    onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+                  />
                 </div>
               </div>
             </div>
@@ -229,14 +295,28 @@ export const OnboardingPage: React.FC = () => {
                     Target Amount (₹)
                     <InfoTooltip title="Target Amount" text="Total cost or money required to complete this financial goal." example="Example: ₹5,00,000 target → enter 500000" />
                   </label>
-                  <input type="number" min="0" className="fintech-input" value={formData.goalTargetAmount} onChange={e => setFormData({ ...formData, goalTargetAmount: Math.max(0, Number(e.target.value)) })} />
+                  <input 
+                    type="number" 
+                    min="0" 
+                    className="fintech-input" 
+                    value={formData.goalTargetAmount} 
+                    onChange={e => handleNumberInput('goalTargetAmount', e.target.value)} 
+                    onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+                  />
                 </div>
                 <div>
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                     Monthly SIP Contribution (₹)
                     <InfoTooltip title="Monthly SIP Contribution" text="Amount you can set aside every month toward achieving this goal." example="Example: ₹10,000 per month → enter 10000" />
                   </label>
-                  <input type="number" min="0" className="fintech-input" value={formData.goalMonthlyContribution} onChange={e => setFormData({ ...formData, goalMonthlyContribution: Math.max(0, Number(e.target.value)) })} />
+                  <input 
+                    type="number" 
+                    min="0" 
+                    className="fintech-input" 
+                    value={formData.goalMonthlyContribution} 
+                    onChange={e => handleNumberInput('goalMonthlyContribution', e.target.value)} 
+                    onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+                  />
                 </div>
               </div>
             </div>

@@ -50,6 +50,8 @@ export const LoansPage: React.FC = () => {
       setRate(9.5); setTenure(84); setPrincipal(800000);
     } else if (type === 'Gold Loan') {
       setRate(8.0); setTenure(24); setPrincipal(200000);
+    } else if (type === 'Other') {
+      setRate(10.0); setTenure(48); setPrincipal(500000);
     }
   };
 
@@ -92,19 +94,25 @@ export const LoansPage: React.FC = () => {
   }, []);
 
   const handleMarkAsPaid = async () => {
-    if (!selectedLoanId) return;
+    const targetLoanId = selectedLoanId || (activeLoans[0] ? activeLoans[0].id : null);
+    if (!targetLoanId) return;
     setPaying(true);
     setPaySuccess('');
 
     try {
       const token = localStorage.getItem('artha_token') || '';
-      const res = await fetch(`/api/v1/loans/${selectedLoanId}/mark-paid`, {
+      const res = await fetch(`/api/v1/loans/${targetLoanId}/mark-paid`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        setPaySuccess('EMI Paid & Transaction Recorded');
-        setTimeout(() => setPaySuccess(''), 3000);
+        const data = await res.json();
+        if (data.status === 'Already Paid') {
+          setPaySuccess('EMI for today is already recorded as paid');
+        } else {
+          setPaySuccess('EMI Paid & Transaction Recorded');
+        }
+        setTimeout(() => setPaySuccess(''), 3500);
         fetchLoansAndAnalyses();
       }
     } catch (err) {
@@ -363,7 +371,7 @@ export const LoansPage: React.FC = () => {
 
           {/* LOAN PRESET BUTTONS */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
-            {['Home Loan', 'Car Loan', 'Personal Loan', 'Education Loan', 'Gold Loan'].map(type => (
+            {['Home Loan', 'Car Loan', 'Personal Loan', 'Education Loan', 'Gold Loan', 'Other'].map(type => (
               <button
                 key={type}
                 onClick={() => handleSelectLoanType(type)}
@@ -590,6 +598,7 @@ export const LoansPage: React.FC = () => {
                     <option value="Personal Loan">Personal Loan</option>
                     <option value="Education Loan">Education Loan</option>
                     <option value="Gold Loan">Gold Loan</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
 

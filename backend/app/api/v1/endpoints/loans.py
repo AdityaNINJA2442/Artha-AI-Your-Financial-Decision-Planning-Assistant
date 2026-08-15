@@ -83,6 +83,7 @@ def create_loan(req: CreateLoanRequest, current_user: User = Depends(get_current
     return new_loan
 
 @router.post("/{loan_id}/pay")
+@router.post("/{loan_id}/mark-paid")
 def pay_loan_emi(loan_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     ATOMIC WORKFLOW: Mark EMI as Paid.

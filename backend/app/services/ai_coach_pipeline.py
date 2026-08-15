@@ -11,6 +11,7 @@ from app.services.loan_engine import calculate_emi, calculate_loan_affordability
 from app.services.affordability_engine import evaluate_purchase_affordability
 from app.services.shock_engine import simulate_financial_shock
 from app.services.futureview_engine import simulate_futureview
+from app.services.financial_math import compute_financial_fitness_score
 
 logger = logging.getLogger("artha.ai_pipeline")
 
@@ -49,7 +50,9 @@ def parse_structured_parameters(question: str) -> Dict[str, Any]:
         item_name = "Real Estate Deposit"
 
     # 3. Classify Intent
-    if "loan" in q or "emi" in q:
+    if "income" in q and ("increase" in q or "growth" in q or "%" in q or "raise" in q or "more" in q):
+        intent = "INCOME_SCENARIO"
+    elif "loan" in q or "emi" in q:
         intent = "LOAN_AFFORDABILITY"
     elif "afford" in q or "buy" in q or "purchase" in q:
         intent = "PURCHASE_AFFORDABILITY"
@@ -177,18 +180,58 @@ async def execute_ai_coach_pipeline(
         tool_results["futureview"] = future_res
         action_buttons.append({"label": "Open FutureView Digital Twin", "route": "/simulator"})
 
+    elif intent == "INCOME_SCENARIO":
+        pct = 20.0
+        m = re.search(r'(\d+(?:\.\d+)?)\s*%', question)
+        if m:
+            pct = float(m.group(1))
+
+        old_prof = profile.dict() if profile else {}
+        new_prof = dict(old_prof)
+        curr_inc = float(old_prof.get("monthly_income", income))
+        new_inc = curr_inc * (1.0 + pct / 100.0)
+        new_prof["monthly_income"] = new_inc
+
+        tx_dicts = [t.dict() for t in transactions]
+        old_fit = compute_financial_fitness_score(old_prof, tx_dicts)
+        new_fit = compute_financial_fitness_score(new_prof, tx_dicts)
+
+        old_score = old_fit.get("overall_score", 80)
+        new_score = new_fit.get("overall_score", 80)
+        delta = new_score - old_score
+
+        tools_executed.append("financial_math.compute_financial_fitness_score")
+        tool_results["income_scenario"] = {
+            "pct": pct,
+            "curr_inc": curr_inc,
+            "new_inc": new_inc,
+            "old_score": old_score,
+            "new_score": new_score,
+            "delta": delta
+        }
+        action_buttons.append({"label": "View Financial Health", "route": "/dashboard"})
+
     elif intent == "SPENDING_INVESTIGATION":
-        food_txs = [t for t in transactions if "Swiggy" in t.merchant or "Zomato" in t.merchant or t.category_id == 1]
-        food_total = sum(t.amount for t in food_txs) if food_txs else 12400.0
+        food_txs = [t for t in transactions if t.category_id == 1 or "food" in (t.merchant or "").lower()]
+        food_total = sum(t.amount for t in food_txs)
         tools_executed.append("investigation_engine.analyze_category")
         tool_results["food_total"] = food_total
+        tool_results["food_count"] = len(food_txs)
         action_buttons.append({"label": "Analyze Transactions", "route": "/transactions"})
 
     else:
         action_buttons.append({"label": "View Dashboard", "route": "/dashboard"})
 
     # 5. Generate Contextual Answer
-    if intent == "LOAN_AFFORDABILITY":
+    if intent == "INCOME_SCENARIO":
+        sc = tool_results["income_scenario"]
+        answer = (
+            f"Income Scenario Analysis (+{sc['pct']:.0f}% Income Growth): "
+            f"If your monthly income increases from ₹{sc['curr_inc']:,.0f} → **₹{sc['new_inc']:,.0f}**, "
+            f"your Financial Fitness Score improves from **{sc['old_score']}/100** → **{sc['new_score']}/100** (+{sc['delta']} pts). "
+            f"Your monthly surplus increases by ₹{sc['new_inc'] - sc['curr_inc']:,.0f}."
+        )
+    elif intent == "LOAN_AFFORDABILITY":
         emi = tool_results["emi_calc"]["emi"]
         status = tool_results["affordability"]["status"]
         surplus = tool_results["affordability"]["surplus_after"]
@@ -219,15 +262,26 @@ async def execute_ai_coach_pipeline(
             f"*(Illustrative linear projection based on assumed compound growth)*."
         )
     elif intent == "SPENDING_INVESTIGATION":
-        total = tool_results.get("food_total", 12400.0)
-        answer = (
-            f"PostgreSQL Transaction Analysis: You have spent **₹{total:,.0f}** on Food & Dining transactions. "
-            f"Reducing dining out by 40% would save ₹4,960/month towards your primary car goal."
-        )
+        total = tool_results.get("food_total", 0.0)
+        cnt = tool_results.get("food_count", 0)
+        if total > 0:
+            answer = (
+                f"PostgreSQL Transaction Analysis: You have spent **₹{total:,.0f}** on Food & Dining transactions ({cnt} logged transactions). "
+                f"Reducing dining out by 40% would save ₹{total * 0.4:,.0f}/month towards your primary financial goals."
+            )
+        else:
+            answer = (
+                f"PostgreSQL Transaction Analysis: You currently have **₹0** recorded in Food & Dining expenses across your logged transactions."
+            )
     else:
+        prof_dict = profile.dict() if profile else {}
+        tx_dicts = [t.dict() for t in transactions]
+        fitness_res = compute_financial_fitness_score(prof_dict, tx_dicts)
+        fit_score = fitness_res.get("overall_score", 80)
+
         answer = (
             f"Based on your profile (Monthly Income: ₹{income:,.0f}, Fixed Expenses: ₹{fixed_exp:,.0f}, Liquid Savings: ₹{savings:,.0f}), "
-            f"your Financial Fitness Score is 82/100. Maintaining a 6-month emergency buffer is recommended."
+            f"your Financial Fitness Score is {fit_score}/100. Maintaining a 6-month emergency buffer is recommended."
         )
 
     badge_label = "AI-Powered Analysis (Gemini 1.5)" if is_ai_api_available() else "Rule-based / Local System Analysis"

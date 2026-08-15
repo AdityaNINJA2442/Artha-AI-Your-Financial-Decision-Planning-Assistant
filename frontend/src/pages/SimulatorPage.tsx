@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Zap, ShieldCheck, TrendingUp, Bookmark, Trash2, RotateCcw, Check } from 'lucide-react';
+import { Zap, ShieldCheck, TrendingUp, Bookmark, Trash2, RotateCcw, Check, Info } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 
 export const SimulatorPage: React.FC = () => {
@@ -353,15 +353,30 @@ export const SimulatorPage: React.FC = () => {
       {activeTab === 'shock' && (
         <div className="fintech-card" style={{ padding: '28px' }}>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-cream)', marginBottom: '20px' }}>Financial Shock Simulation</h3>
+          
+          {/* HOW IT WORKS EXPLANATION */}
+          <div style={{ background: 'rgba(201, 169, 106, 0.08)', border: '1px solid var(--border-gold)', borderRadius: '10px', padding: '16px', marginBottom: '24px', fontSize: '0.85rem', color: 'var(--text-cream)' }}>
+            <div style={{ fontWeight: 700, color: 'var(--accent-gold)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Info size={16} /> How Financial Shock Simulation Works
+            </div>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.4 }}>
+              Financial Shock Simulation estimates how long your available financial resources can support your essential monthly living expenses under emergency situations.
+            </p>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div>• <strong>Scenario 1 (Complete Job Loss):</strong> Assumes monthly income drops to ₹0. Survival Runway = Liquid Savings (₹{userSavings.toLocaleString('en-IN')}) ÷ Monthly Essential Expenses (₹{fixedExp.toLocaleString('en-IN')}). Your current savings cover approx <strong>{(userSavings / (fixedExp || 1)).toFixed(1)} months</strong>.</div>
+              <div>• <strong>Scenario 2 (Medical Emergency):</strong> Applies an immediate ₹2,00,000 medical cost first. Remaining Runway = (Liquid Savings − ₹2,00,000) ÷ Monthly Essential Expenses. Your remaining savings cover approx <strong>{(Math.max(0, userSavings - 200000) / (fixedExp || 1)).toFixed(1)} months</strong>.</div>
+            </div>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
             <div style={{ background: '#1B1B1B', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Scenario 1: Complete Job Loss</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-coral)', marginBottom: '8px' }}>{(userSavings / fixedExp).toFixed(1)} Months</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-coral)', marginBottom: '8px' }}>{(userSavings / (fixedExp || 1)).toFixed(1)} Months</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Survives essential expenses without income</div>
             </div>
             <div style={{ background: '#1B1B1B', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Scenario 2: Medical Emergency (₹2,00,000)</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-amber)', marginBottom: '8px' }}>{(Math.max(0, userSavings - 200000) / fixedExp).toFixed(1)} Months</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-amber)', marginBottom: '8px' }}>{(Math.max(0, userSavings - 200000) / (fixedExp || 1)).toFixed(1)} Months</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Remaining runway after emergency expense</div>
             </div>
           </div>

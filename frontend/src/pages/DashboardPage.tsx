@@ -1,6 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { TrendingUp, ShieldCheck, ArrowRight, CreditCard, Sparkles, Zap } from 'lucide-react';
+import { TrendingUp, ShieldCheck, ArrowRight, CreditCard, Sparkles, Zap, Info } from 'lucide-react';
+
+const InfoTooltip: React.FC<{ title: string; text: string; example: string }> = ({ title, text, example }) => {
+  const [show, setShow] = useState(false);
+  return (
+    <span 
+      style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', marginLeft: '6px', cursor: 'pointer' }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onClick={() => setShow(!show)}
+    >
+      <Info size={14} color="var(--accent-gold)" />
+      {show && (
+        <div style={{
+          position: 'absolute',
+          bottom: '125%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '12px 14px',
+          background: '#1A1A1A',
+          border: '1px solid var(--border-gold)',
+          borderRadius: '8px',
+          fontSize: '0.78rem',
+          color: 'var(--text-cream)',
+          width: '270px',
+          zIndex: 100,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.9)',
+          pointerEvents: 'none'
+        }}>
+          <div style={{ fontWeight: 700, color: 'var(--accent-gold)', marginBottom: '4px' }}>{title}</div>
+          <div style={{ color: 'var(--text-main)', marginBottom: '6px', lineHeight: 1.4 }}>{text}</div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontStyle: 'italic', borderTop: '1px solid var(--border-subtle)', paddingTop: '4px' }}>
+            {example}
+          </div>
+        </div>
+      )}
+    </span>
+  );
+};
 
 export const DashboardPage: React.FC = () => {
   const [profile, setProfile] = useState<any>({
@@ -15,6 +53,8 @@ export const DashboardPage: React.FC = () => {
   const [expensesTotal, setExpensesTotal] = useState(0);
   const [activeLoansCount, setActiveLoansCount] = useState(0);
   const [totalEmiAmount, setTotalEmiAmount] = useState(0);
+  const [totalOutstandingPrincipal, setTotalOutstandingPrincipal] = useState(0);
+  const [userTransactions, setUserTransactions] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -60,6 +100,7 @@ export const DashboardPage: React.FC = () => {
         if (txRes.ok) {
           const txData = await txRes.json();
           const txList = Array.isArray(txData) ? txData : (txData && Array.isArray(txData.items) ? txData.items : []);
+          setUserTransactions(txList);
           const expSum = txList
             .filter((t: any) => t.type === 'Expense')
             .reduce((acc: number, t: any) => acc + t.amount, 0);
@@ -74,8 +115,10 @@ export const DashboardPage: React.FC = () => {
           const loanData = await loanRes.json();
           if (Array.isArray(loanData)) {
             setActiveLoansCount(loanData.length);
-            const totalEmi = loanData.reduce((acc: number, l: any) => acc + l.emi_amount, 0);
+            const totalEmi = loanData.reduce((acc: number, l: any) => acc + (l.emi_amount || 0), 0);
+            const totalOutstanding = loanData.reduce((acc: number, l: any) => acc + (l.outstanding_principal || 0), 0);
             setTotalEmiAmount(totalEmi);
+            setTotalOutstandingPrincipal(totalOutstanding);
           }
         }
       } catch (e) {
@@ -86,11 +129,49 @@ export const DashboardPage: React.FC = () => {
     fetchDashboardData();
   }, []);
 
-  const netSurplus = Math.max(0, profile.monthlyIncome - expensesTotal);
-  const netWorth = (profile.currentSavings + profile.emergencyFund + 1545420) - (totalEmiAmount * 12);
+  const incomeFromTxs = userTransactions
+    .filter((t: any) => t.type === 'Income')
+    .reduce((acc: number, t: any) => acc + t.amount, 0);
+
+  const totalIncome = incomeFromTxs > 0 ? incomeFromTxs : profile.monthlyIncome;
+  const netSurplus = totalIncome - expensesTotal;
+  const totalAssets = (profile.currentSavings || 0) + (profile.emergencyFund || 0);
+  const netWorth = totalAssets - totalOutstandingPrincipal;
   const needsAmount = Math.round(expensesTotal * 0.72);
   const wantsAmount = Math.round(expensesTotal * 0.28);
-  const futureAmount = netSurplus;
+  const futureAmount = Math.max(0, netSurplus);
+
+  const aiInsight = React.useMemo(() => {
+    const expenseTxs = userTransactions.filter(t => t.type === 'Expense');
+    if (expenseTxs.length === 0) {
+      return {
+        title: "Welcome to Artha AI Financial Sentinel",
+        desc: "No expense transactions recorded yet. Add transactions or complete onboarding to trigger real-time AI cash flow insights."
+      };
+    }
+
+    const catTotals: Record<string, number> = {};
+    expenseTxs.forEach(t => {
+      const cat = t.category_name || t.category || "Other Expenses";
+      catTotals[cat] = (catTotals[cat] || 0) + t.amount;
+    });
+
+    let topCat = "Food & Dining";
+    let topAmt = 0;
+    Object.entries(catTotals).forEach(([cat, amt]) => {
+      if (amt > topAmt) {
+        topAmt = amt;
+        topCat = cat;
+      }
+    });
+
+    const topPct = expensesTotal > 0 ? Math.round((topAmt / expensesTotal) * 100) : 0;
+
+    return {
+      title: `Top Outflow Category: ${topCat} (${topPct}% of expenses)`,
+      desc: `You spent ₹${topAmt.toLocaleString('en-IN')} on ${topCat} across your logged transactions. Managing discretionary spending in ${topCat} offers the highest optimization potential.`
+    };
+  }, [userTransactions, expensesTotal]);
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 24px', background: 'var(--bg-dark)' }}>
@@ -118,50 +199,65 @@ export const DashboardPage: React.FC = () => {
         {/* CARD 1: FINANCIAL FITNESS */}
         <div className="fintech-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Financial Fitness</div>
-            <ArrowRight size={16} color="var(--text-muted)" />
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Financial Fitness</span>
+              <InfoTooltip 
+                title="Financial Fitness (0-100)"
+                text="Your score measures overall financial health. It evaluates savings ratio, emergency fund runway, debt burden, spending discipline, and cash-flow surplus from your PostgreSQL financial records."
+                example="A higher score indicates stronger financial resilience."
+              />
+            </div>
+            <ShieldCheck size={18} color="var(--accent-gold)" />
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '12px' }}>
-            <span style={{ fontSize: '2.6rem', fontWeight: 800, color: 'var(--accent-gold)' }}>{profile.overallScore}</span>
-            <span style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>/ 100</span>
-            <span className="badge-gold" style={{ marginLeft: 'auto' }}>Great</span>
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#FFF', marginBottom: '6px' }}>
+            {profile.overallScore}<span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>/100</span>
           </div>
-
-          <div style={{ fontSize: '0.82rem', color: 'var(--accent-gold-light)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <TrendingUp size={14} /> ↑ 6 points this month
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            Authoritative calculation engine derived from PostgreSQL
           </div>
         </div>
 
-        {/* CARD 2: CASH FLOW */}
+        {/* CARD 2: MONTHLY NET SURPLUS */}
         <div className="fintech-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Cash Flow</div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Aug 2026</span>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                {netSurplus >= 0 ? 'Monthly Net Surplus' : 'Monthly Cash Deficit'}
+              </span>
+              <InfoTooltip 
+                title="Monthly Cash Flow"
+                text="Monthly Net Surplus represents how much money is left after all monthly expenses are deducted from your total income."
+                example="Net Surplus = Total Monthly Income − Total Monthly Expenses"
+              />
+            </div>
+            <TrendingUp size={18} color={netSurplus >= 0 ? "var(--accent-gold)" : "var(--accent-coral)"} />
           </div>
-
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--accent-gold)', marginBottom: '6px' }}>
-            ₹{netSurplus.toLocaleString('en-IN')}
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: netSurplus >= 0 ? 'var(--accent-gold)' : 'var(--accent-coral)', marginBottom: '6px' }}>
+            {netSurplus < 0 ? `−₹${Math.abs(netSurplus).toLocaleString('en-IN')}` : `₹${netSurplus.toLocaleString('en-IN')}`}
           </div>
-
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            Surplus (Income ₹{profile.monthlyIncome.toLocaleString('en-IN')} − Expenses ₹{expensesTotal.toLocaleString('en-IN')})
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            Income (₹{totalIncome.toLocaleString('en-IN')}) − Expenses (₹{expensesTotal.toLocaleString('en-IN')})
           </div>
         </div>
 
         {/* CARD 3: NET WORTH */}
         <div className="fintech-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Net Worth</div>
-            <span className="badge-gold">↑ 12.4% vs last month</span>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Total Net Worth</span>
+              <InfoTooltip 
+                title="Net Worth Breakdown"
+                text="Net Worth is the value of what you own minus what you owe (Assets − Liabilities). Your salary is monthly income and does not automatically equal net worth."
+                example={`Net Worth = Liquid Assets (₹${totalAssets.toLocaleString('en-IN')}) − Liabilities (₹${totalOutstandingPrincipal.toLocaleString('en-IN')})`}
+              />
+            </div>
+            <CreditCard size={18} color="var(--text-cream)" />
           </div>
-
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--accent-gold)', marginBottom: '6px' }}>
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#FFF', marginBottom: '6px' }}>
             ₹{netWorth.toLocaleString('en-IN')}
           </div>
-
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            Assets: ₹{(profile.currentSavings + profile.emergencyFund).toLocaleString('en-IN')} | Debt: ₹{(totalEmiAmount * 12).toLocaleString('en-IN')}
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            Liquid Assets (₹{totalAssets.toLocaleString('en-IN')}) − Liabilities (₹{totalOutstandingPrincipal.toLocaleString('en-IN')})
           </div>
         </div>
 
@@ -173,10 +269,7 @@ export const DashboardPage: React.FC = () => {
         {/* CASH FLOW BREAKDOWN CARD */}
         <div className="fintech-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-cream)' }}>Cash Flow Breakdown</div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Salary Flow Distribution (August 2026)</div>
-            </div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-cream)' }}>Monthly Expense Distribution</h3>
             <Link to="/transactions" className="btn-ghost" style={{ fontSize: '0.78rem' }}>View Ledger</Link>
           </div>
 
@@ -224,11 +317,11 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-cream)', marginBottom: '8px', lineHeight: 1.4 }}>
-              "Food delivery spending increased 31% this month."
+              "{aiInsight.title}"
             </div>
 
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '20px' }}>
-              You spent ₹12,400 on Swiggy/Zomato. Reducing food delivery frequency by 40% would save approximately <strong style={{ color: 'var(--accent-gold)' }}>₹2,450/month</strong> for your active car goal.
+              {aiInsight.desc}
             </p>
           </div>
 

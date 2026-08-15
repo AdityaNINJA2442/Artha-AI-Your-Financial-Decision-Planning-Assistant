@@ -15,6 +15,7 @@ class TransactionCreate(BaseModel):
     amount: float
     date: Optional[str] = None
     category_id: Optional[int] = None
+    category_name: Optional[str] = None
     type: str = "Expense"
     payment_method: str = "UPI"
     notes: Optional[str] = None
@@ -70,14 +71,19 @@ def create_transaction(
         tx_date = datetime.date.today()
 
     category_id = req.category_id
+    if not category_id and req.category_name:
+        cat = db.exec(select(Category).where(Category.name == req.category_name)).first()
+        if cat:
+            category_id = cat.id
+
     if not category_id:
         # Check Merchant Mapping DB
         mapping = db.exec(select(MerchantMapping).where(MerchantMapping.raw_merchant.ilike(f"%{req.merchant}%"))).first()
         if mapping:
             category_id = mapping.mapped_category_id
         else:
-            default_cat = db.exec(select(Category).where(Category.name == "Food & Dining")).first()
-            category_id = default_cat.id if default_cat else 1
+            other_cat = db.exec(select(Category).where(Category.name == "Other Expenses")).first()
+            category_id = other_cat.id if other_cat else 11
 
     new_tx = Transaction(
         user_id=current_user.id,
@@ -93,7 +99,11 @@ def create_transaction(
     db.add(new_tx)
     db.commit()
     db.refresh(new_tx)
-    return new_tx
+
+    cat_obj = db.get(Category, new_tx.category_id)
+    tx_res = new_tx.dict()
+    tx_res["category_name"] = cat_obj.name if cat_obj else "Other Expenses"
+    return tx_res
 
 @router.delete("/{tx_id}")
 def delete_transaction(
