@@ -70,19 +70,6 @@ export const LandingPage: React.FC = () => {
                 Explore Artha
               </Link>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '40px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)' }}>
-              <div style={{ display: 'flex' }}>
-                {['#C9A96A', '#B00000', '#54C7A3'].map((c, i) => (
-                  <div key={i} style={{ width: '32px', height: '32px', borderRadius: '50%', background: c, border: '2px solid #050505', marginLeft: i > 0 ? '-10px' : '0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, color: '#FFF' }}>
-                    {String.fromCharCode(65 + i)}
-                  </div>
-                ))}
-              </div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Trusted by <strong style={{ color: 'var(--text-cream)' }}>50,000+</strong> everyday Indian households
-              </div>
-            </div>
           </div>
 
           {/* Right Column: Floating Interactive Dashboard Hero Mockup */}

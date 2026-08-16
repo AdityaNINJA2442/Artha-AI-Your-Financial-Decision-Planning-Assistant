@@ -5,7 +5,7 @@ import datetime
 from typing import Dict, Any, List, Optional
 from sqlmodel import Session, select
 
-from app.models.entities import UserProfile, Transaction, Loan, FinancialGoal, ChatConversation, ChatMessage
+from app.models.entities import UserProfile, Transaction, Loan, FinancialGoal, ChatConversation, ChatMessage, Category
 from app.services.ai_engine import is_ai_api_available
 from app.services.loan_engine import calculate_emi, calculate_loan_affordability
 from app.services.affordability_engine import evaluate_purchase_affordability
@@ -50,7 +50,7 @@ def parse_structured_parameters(question: str) -> Dict[str, Any]:
         item_name = "Real Estate Deposit"
 
     # 3. Classify Intent
-    if "income" in q and ("increase" in q or "growth" in q or "%" in q or "raise" in q or "more" in q):
+    if "income" in q and ("increase" in q or "growth" in q or "%" in q or "raise" in q):
         intent = "INCOME_SCENARIO"
     elif "loan" in q or "emi" in q:
         intent = "LOAN_AFFORDABILITY"
@@ -60,9 +60,11 @@ def parse_structured_parameters(question: str) -> Dict[str, Any]:
         intent = "FINANCIAL_SHOCK"
     elif "future" in q or "projection" in q or "net worth" in q or "10 year" in q:
         intent = "FUTUREVIEW"
-    elif "food" in q or "swiggy" in q or "zomato" in q or "spend" in q or "leak" in q:
+    elif any(k in q for k in ["biggest", "where", "food", "swiggy", "zomato", "spend", "expense", "leak", "categories"]):
         intent = "SPENDING_INVESTIGATION"
-    elif "save" in q or "savings" in q or "increase" in q or "more" in q:
+    elif ("increase" in q or "build" in q or "grow" in q or "more" in q or "how" in q) and ("savings" in q or "save" in q or "liquid" in q):
+        intent = "SAVINGS_ADVICE"
+    elif "what if" in q or "how about" in q or q.startswith("is that") or q.startswith("what about"):
         intent = "SAVINGS_CONTINUATION"
     else:
         intent = "GENERAL_FINANCIAL_QUESTION"
@@ -122,7 +124,7 @@ async def execute_ai_coach_pipeline(
     item_name = params["item_name"]
     amount = params["amount"]
 
-    # Handle Multi-turn continuation (e.g. "What if I save ₹5,000 more?")
+    # Handle Multi-turn continuation ONLY if explicitly asked as a short follow-up
     if intent == "SAVINGS_CONTINUATION" and past_messages:
         last_coach_msg = [m for m in past_messages if m.sender == "coach"][-1] if [m for m in past_messages if m.sender == "coach"] else None
         if last_coach_msg and "laptop" in last_coach_msg.message.lower():
@@ -211,12 +213,32 @@ async def execute_ai_coach_pipeline(
         }
         action_buttons.append({"label": "View Financial Health", "route": "/dashboard"})
 
+    elif intent == "SAVINGS_ADVICE":
+        surplus = income - fixed_exp - existing_emi
+        runway = (savings / fixed_exp) if fixed_exp > 0 else 0
+        tools_executed.append("profile_engine.calculate_savings_capacity")
+        tool_results["savings_advice"] = {
+            "income": income,
+            "fixed_exp": fixed_exp,
+            "surplus": surplus,
+            "savings": savings,
+            "runway": runway
+        }
+        action_buttons.append({"label": "View Financial Health", "route": "/dashboard"})
+
     elif intent == "SPENDING_INVESTIGATION":
-        food_txs = [t for t in transactions if t.category_id == 1 or "food" in (t.merchant or "").lower()]
-        food_total = sum(t.amount for t in food_txs)
-        tools_executed.append("investigation_engine.analyze_category")
-        tool_results["food_total"] = food_total
-        tool_results["food_count"] = len(food_txs)
+        categories = db.exec(select(Category)).all()
+        cat_name_map = {c.id: c.name for c in categories}
+        cat_map: Dict[str, float] = {}
+        for t in transactions:
+            if t.type == "Expense":
+                c_name = cat_name_map.get(t.category_id, "Other Expenses")
+                cat_map[c_name] = cat_map.get(c_name, 0.0) + t.amount
+
+        sorted_cats = sorted(cat_map.items(), key=lambda x: x[1], reverse=True)
+        tools_executed.append("investigation_engine.analyze_category_ledger")
+        tool_results["top_categories"] = sorted_cats[:3]
+        tool_results["total_expenses"] = sum(cat_map.values())
         action_buttons.append({"label": "Analyze Transactions", "route": "/transactions"})
 
     else:
@@ -261,17 +283,27 @@ async def execute_ai_coach_pipeline(
             f"Projected 5-Year Net Worth: **₹{fv['projected_5yr']:,.0f}** | 10-Year Net Worth: **₹{fv['projected_10yr']:,.0f}**. "
             f"*(Illustrative linear projection based on assumed compound growth)*."
         )
+    elif intent == "SAVINGS_ADVICE":
+        sa = tool_results["savings_advice"]
+        answer = (
+            f"PostgreSQL Financial Analysis for Liquid Savings: "
+            f"Your recorded liquid savings stand at **₹{sa['savings']:,.0f}** ({sa['runway']:.1f} months of emergency runway). "
+            f"With your current monthly net surplus of **₹{sa['surplus']:,.0f}** (Income: ₹{sa['income']:,.0f} − Expenses/EMI: ₹{sa['fixed_exp'] + existing_emi:,.0f}), "
+            f"redirecting 60% of monthly surplus (₹{sa['surplus'] * 0.6:,.0f}/mo) into liquid mutual funds or high-yield savings will increase your liquid buffer to ₹{sa['savings'] + sa['surplus'] * 0.6 * 6:,.0f} in 6 months."
+        )
     elif intent == "SPENDING_INVESTIGATION":
-        total = tool_results.get("food_total", 0.0)
-        cnt = tool_results.get("food_count", 0)
-        if total > 0:
+        top_cats = tool_results.get("top_categories", [])
+        total_exp = tool_results.get("total_expenses", 0.0)
+        if top_cats:
+            cat_summary = ", ".join([f"**{cat}**: ₹{amt:,.0f}" for cat, amt in top_cats])
             answer = (
-                f"PostgreSQL Transaction Analysis: You have spent **₹{total:,.0f}** on Food & Dining transactions ({cnt} logged transactions). "
-                f"Reducing dining out by 40% would save ₹{total * 0.4:,.0f}/month towards your primary financial goals."
+                f"PostgreSQL Ledger Spending Analysis (Total Expenses: ₹{total_exp:,.0f}): "
+                f"Your highest spending categories are {cat_summary}. "
+                f"Optimizing discretionary spending in these top categories offers the greatest immediate potential to boost your monthly savings."
             )
         else:
             answer = (
-                f"PostgreSQL Transaction Analysis: You currently have **₹0** recorded in Food & Dining expenses across your logged transactions."
+                f"PostgreSQL Transaction Analysis: No logged expense transactions found yet in your ledger."
             )
     else:
         prof_dict = profile.dict() if profile else {}

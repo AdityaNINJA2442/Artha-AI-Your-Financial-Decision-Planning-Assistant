@@ -82,8 +82,37 @@ def create_transaction(
         if mapping:
             category_id = mapping.mapped_category_id
         else:
-            other_cat = db.exec(select(Category).where(Category.name == "Other Expenses")).first()
-            category_id = other_cat.id if other_cat else 11
+            m_lower = req.merchant.lower()
+            cat_name = None
+            if any(k in m_lower for k in ["salary", "office", "payroll", "stipend"]):
+                cat_name = "Salary & Income"
+            elif any(k in m_lower for k in ["swiggy", "zomato", "restaurant", "cafe", "food", "dining"]):
+                cat_name = "Food & Dining"
+            elif any(k in m_lower for k in ["blinkit", "zepto", "grocery", "groceries", "supermarket"]):
+                cat_name = "Groceries"
+            elif any(k in m_lower for k in ["rent", "housing", "maintenance", "landlord"]):
+                cat_name = "Rent & Housing"
+            elif any(k in m_lower for k in ["utility", "utilities", "electricity", "bescom", "water", "bill"]):
+                cat_name = "Utilities & Bills"
+            elif any(k in m_lower for k in ["amazon", "flipkart", "myntra", "shopping", "store"]):
+                cat_name = "Shopping & Lifestyle"
+            elif any(k in m_lower for k in ["uber", "ola", "irctc", "fuel", "petrol", "transport", "travel"]):
+                cat_name = "Travel & Transport"
+            elif any(k in m_lower for k in ["apollo", "pharmacy", "health", "hospital", "doctor"]):
+                cat_name = "Medical & Health"
+            elif any(k in m_lower for k in ["zerodha", "groww", "sip", "investment", "mutual fund"]):
+                cat_name = "Investments & SIP"
+            elif any(k in m_lower for k in ["netflix", "spotify", "chatgpt", "subscription"]):
+                cat_name = "Subscriptions"
+
+            if cat_name:
+                cat = db.exec(select(Category).where(Category.name == cat_name)).first()
+                if cat:
+                    category_id = cat.id
+
+    if not category_id:
+        other_cat = db.exec(select(Category).where(Category.name == "Other Expenses")).first()
+        category_id = other_cat.id if other_cat else 11
 
     new_tx = Transaction(
         user_id=current_user.id,

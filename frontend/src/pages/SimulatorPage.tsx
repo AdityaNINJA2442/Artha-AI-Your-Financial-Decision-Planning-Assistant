@@ -8,6 +8,7 @@ export const SimulatorPage: React.FC = () => {
   // Controlled Local Form State - Can I Afford This?
   const [purchaseName, setPurchaseName] = useState('iPhone 15 Pro');
   const [price, setPrice] = useState(79999);
+  const [priceInputStr, setPriceInputStr] = useState('79999');
   const [userSavings, setUserSavings] = useState(250000);
   const [fixedExp, setFixedExp] = useState(40000);
 
@@ -18,6 +19,7 @@ export const SimulatorPage: React.FC = () => {
 
   // FutureView State
   const [extraMonthlySIP, setExtraMonthlySIP] = useState(10000);
+  const [sipInputStr, setSipInputStr] = useState('10000');
 
   const fetchProfileAndWishlist = async () => {
     try {
@@ -107,7 +109,10 @@ export const SimulatorPage: React.FC = () => {
     if (item.input_data_json) {
       try {
         const parsed = JSON.parse(item.input_data_json);
-        if (parsed.price) setPrice(parsed.price);
+        if (parsed.price) {
+          setPrice(parsed.price);
+          setPriceInputStr(parsed.price.toString());
+        }
       } catch (e) {}
     }
   };
@@ -186,32 +191,86 @@ export const SimulatorPage: React.FC = () => {
       {activeTab === 'affordability' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '28px' }}>
-            <div className="fintech-card" style={{ padding: '28px' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-cream)', marginBottom: '20px' }}>Simulate Purchase Impact</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div className="fintech-card" style={{ padding: '28px', border: '1px solid var(--border-gold)', position: 'relative', overflow: 'hidden' }}>
+              {/* Subtle top accent bar */}
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--accent-gold), transparent)' }} />
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '22px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(201, 169, 106, 0.12)', border: '1px solid var(--border-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Zap size={18} color="var(--accent-gold)" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-cream)' }}>Simulate Purchase Impact</h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Analyze liquid savings & emergency runway shift</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div>
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Item Name</label>
                   <input
                     type="text"
                     className="fintech-input"
+                    placeholder="e.g. iPhone 15 Pro, Laptop, Car"
                     value={purchaseName}
                     onChange={e => setPurchaseName(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', fontSize: '0.92rem', borderRadius: '8px' }}
                   />
                 </div>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Price (₹)</span>
-                    <span style={{ fontWeight: 700, color: 'var(--accent-gold)' }}>₹{price.toLocaleString('en-IN')}</span>
+
+                <div style={{ background: '#161616', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>Purchase Price</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--accent-gold)', fontWeight: 700 }}>₹</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Enter price"
+                        value={priceInputStr}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/[^0-9.]/g, '');
+                          setPriceInputStr(raw);
+                          if (raw.trim() === '') {
+                            setPrice(0);
+                          } else {
+                            const parsed = parseFloat(raw);
+                            if (!isNaN(parsed)) setPrice(parsed);
+                          }
+                        }}
+                        className="fintech-input"
+                        style={{
+                          width: '130px',
+                          padding: '6px 12px',
+                          fontSize: '0.95rem',
+                          fontWeight: 700,
+                          color: 'var(--accent-gold)',
+                          textAlign: 'right',
+                          border: '1px solid var(--border-gold)',
+                          borderRadius: '8px',
+                          background: '#0E0E0E'
+                        }}
+                      />
+                    </div>
                   </div>
                   <input
                     type="range"
-                    min="10000"
+                    min="5000"
                     max="500000"
                     step="5000"
-                    value={price}
-                    onChange={e => setPrice(Number(e.target.value))}
-                    style={{ width: '100%', accentColor: '#C9A96A' }}
+                    value={Math.min(500000, price)}
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      setPrice(val);
+                      setPriceInputStr(val.toString());
+                    }}
+                    style={{ width: '100%', accentColor: '#C9A96A', cursor: 'pointer' }}
                   />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    <span>₹5,000</span>
+                    <span>₹2,50,000</span>
+                    <span>₹5,000,000</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -232,7 +291,7 @@ export const SimulatorPage: React.FC = () => {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Emergency Runway</span>
-                    <span style={{ fontWeight: 700, color: '#FFF' }}>{(userSavings / fixedExp).toFixed(1)} mos → <span style={{ color: 'var(--accent-amber)' }}>{runwayMonths} mos</span></span>
+                    <span style={{ fontWeight: 700, color: '#FFF' }}>{(userSavings / (fixedExp || 1)).toFixed(1)} mos → <span style={{ color: 'var(--accent-amber)' }}>{runwayMonths} mos</span></span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Primary Goal Target Date</span>
@@ -258,14 +317,14 @@ export const SimulatorPage: React.FC = () => {
             <div className="fintech-card" style={{ padding: '28px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
                 <Bookmark size={20} color="var(--accent-gold)" />
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-cream)' }}>Saved Wishlist Purchases</h3>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-cream)' }}>Saved Wishlist Purchases</h3>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                {savedWishlist.map(item => {
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                {savedWishlist.map((item: any) => {
                   let itemPrice = 0;
                   try {
-                    const parsed = JSON.parse(item.input_data_json || '{}');
+                    const parsed = JSON.parse(item.input_data_json);
                     itemPrice = parsed.price || 0;
                   } catch(e) {}
 
@@ -315,16 +374,53 @@ export const SimulatorPage: React.FC = () => {
                 ₹{(30000 + extraMonthlySIP).toLocaleString('en-IN')} / month
               </div>
             </div>
-            <div style={{ width: '300px' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Add Extra Savings (+₹{extraMonthlySIP.toLocaleString('en-IN')}/mo)</div>
+            <div style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Add Extra Savings / Month</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--accent-gold)', fontWeight: 700 }}>₹</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Enter amount"
+                    value={sipInputStr}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^0-9.]/g, '');
+                      setSipInputStr(raw);
+                      if (raw.trim() === '') {
+                        setExtraMonthlySIP(0);
+                      } else {
+                        const parsed = parseFloat(raw);
+                        if (!isNaN(parsed)) setExtraMonthlySIP(parsed);
+                      }
+                    }}
+                    className="fintech-input"
+                    style={{
+                      width: '110px',
+                      padding: '4px 8px',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      color: 'var(--accent-gold)',
+                      textAlign: 'right',
+                      border: '1px solid var(--border-gold)',
+                      borderRadius: '8px',
+                      background: '#141414'
+                    }}
+                  />
+                </div>
+              </div>
               <input
                 type="range"
                 min="0"
-                max="30000"
-                step="2500"
-                value={extraMonthlySIP}
-                onChange={e => setExtraMonthlySIP(Number(e.target.value))}
-                style={{ width: '100%', accentColor: '#C9A96A' }}
+                max="50000"
+                step="1000"
+                value={Math.min(50000, extraMonthlySIP)}
+                onChange={e => {
+                  const val = Number(e.target.value);
+                  setExtraMonthlySIP(val);
+                  setSipInputStr(val.toString());
+                }}
+                style={{ width: '100%', accentColor: '#C9A96A', cursor: 'pointer' }}
               />
             </div>
           </div>
@@ -363,21 +459,28 @@ export const SimulatorPage: React.FC = () => {
               Financial Shock Simulation estimates how long your available financial resources can support your essential monthly living expenses under emergency situations.
             </p>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div>• <strong>Scenario 1 (Complete Job Loss):</strong> Assumes monthly income drops to ₹0. Survival Runway = Liquid Savings (₹{userSavings.toLocaleString('en-IN')}) ÷ Monthly Essential Expenses (₹{fixedExp.toLocaleString('en-IN')}). Your current savings cover approx <strong>{(userSavings / (fixedExp || 1)).toFixed(1)} months</strong>.</div>
-              <div>• <strong>Scenario 2 (Medical Emergency):</strong> Applies an immediate ₹2,00,000 medical cost first. Remaining Runway = (Liquid Savings − ₹2,00,000) ÷ Monthly Essential Expenses. Your remaining savings cover approx <strong>{(Math.max(0, userSavings - 200000) / (fixedExp || 1)).toFixed(1)} months</strong>.</div>
+              <div>• <strong>Scenario 1 (Complete Job Loss):</strong> Assumes monthly income drops to ₹0. Survival Runway = Liquid Savings (₹{userSavings.toLocaleString('en-IN')}) ÷ Monthly Essential Expenses (₹{fixedExp.toLocaleString('en-IN')}). Your current savings cover approx <strong>{(fixedExp > 0 ? userSavings / fixedExp : 0).toFixed(1)} months</strong>.</div>
+              <div>• <strong>Scenario 2 (Medical Emergency):</strong> Applies an immediate ₹2,00,000 medical cost first. Remaining Runway = (Liquid Savings − ₹2,00,000) ÷ Monthly Essential Expenses. Your remaining savings cover approx <strong>{(fixedExp > 0 ? Math.max(0, userSavings - 200000) / fixedExp : 0).toFixed(1)} months</strong>.</div>
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
             <div style={{ background: '#1B1B1B', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Scenario 1: Complete Job Loss</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-coral)', marginBottom: '8px' }}>{(userSavings / (fixedExp || 1)).toFixed(1)} Months</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Survives essential expenses without income</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-coral)', marginBottom: '8px' }}>{(fixedExp > 0 ? userSavings / fixedExp : 0).toFixed(1)} Months</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Your current liquid savings (₹{userSavings.toLocaleString('en-IN')}) could cover approximately <strong>{(fixedExp > 0 ? userSavings / fixedExp : 0).toFixed(1)} months</strong> of essential expenses if your income stopped completely.
+              </div>
             </div>
             <div style={{ background: '#1B1B1B', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Scenario 2: Medical Emergency (₹2,00,000)</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-amber)', marginBottom: '8px' }}>{(Math.max(0, userSavings - 200000) / (fixedExp || 1)).toFixed(1)} Months</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Remaining runway after emergency expense</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-amber)', marginBottom: '8px' }}>{(fixedExp > 0 ? Math.max(0, userSavings - 200000) / fixedExp : 0).toFixed(1)} Months</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                {userSavings >= 200000 
+                  ? `After paying the ₹2,00,000 emergency expense, your remaining liquid savings (₹${Math.max(0, userSavings - 200000).toLocaleString('en-IN')}) would support approximately ${(fixedExp > 0 ? Math.max(0, userSavings - 200000) / fixedExp : 0).toFixed(1)} months of essential expenses.`
+                  : `Your current liquid savings (₹${userSavings.toLocaleString('en-IN')}) are insufficient to cover a ₹2,00,000 emergency expense without zeroing out your buffer.`
+                }
+              </div>
             </div>
           </div>
         </div>
