@@ -50,15 +50,30 @@ def run_expansion_verification():
         goals_res = client.get("/api/v1/goals/", headers=headers).json()
         goals_count = len(goals_res)
 
-        status = "PASS" if tx_count >= 20 and goals_count >= 5 else "FAIL"
+        # Decisions Count
+        dec_res = client.get("/api/v1/decisions/", headers=headers).json()
+        dec_count = len(dec_res) if isinstance(dec_res, list) else 0
+
+        # Profile Assets
+        prof_res = client.get("/api/v1/users/profile", headers=headers).json()
+        savings = prof_res.get("current_savings", 0)
+        emergency = prof_res.get("emergency_fund", 0)
+        tot_assets = savings + emergency
+
+        # Loans Liabilities
+        loans_res = client.get("/api/v1/loans/", headers=headers).json()
+        tot_liab = sum(l.get("outstanding_principal", 0) for l in loans_res) if isinstance(loans_res, list) else 0
+        net_worth = tot_assets - tot_liab
+
+        status = "PASS" if tx_count >= 20 and goals_count >= 5 and dec_count >= 4 and net_worth > 0 else "FAIL"
         if status == "FAIL":
             all_passed = False
 
-        print(f"| {name:<16} | {tx_count:<12} | {goals_count:<7} | {'PASS':<10} | {status:<6} |")
+        print(f"| {name:<16} | Txs:{tx_count:<2} | Goals:{goals_count:<1} | Decs:{dec_count:<1} | NetWorth:+Rs.{net_worth:,.0f} | {status:<4} |")
 
     print("----------------------------------------------------------")
     assert all_passed
-    print("\n[ALL 10 DEMO ACCOUNTS VERIFIED PASSED 100%!]")
+    print("\n[ALL 10 DEMO ACCOUNTS VERIFIED POSITIVE NET WORTH 100%!]")
 
 if __name__ == "__main__":
     run_expansion_verification()
