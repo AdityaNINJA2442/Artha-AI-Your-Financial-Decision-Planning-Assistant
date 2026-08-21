@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Zap, ShieldCheck, TrendingUp, Bookmark, Trash2, RotateCcw, Check, Info } from 'lucide-react';
+import { Zap, ShieldCheck, TrendingUp, Bookmark, Trash2, RotateCcw, Check, Info, Sparkles } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 
 export const SimulatorPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'affordability' | 'futureview' | 'shock'>('affordability');
+  const [activeTab, setActiveTab] = useState<'affordability' | 'futureview' | 'shock' | 'butterfly'>('affordability');
 
   // Controlled Local Form State - Can I Afford This?
   const [purchaseName, setPurchaseName] = useState('iPhone 15 Pro');
@@ -20,6 +20,10 @@ export const SimulatorPage: React.FC = () => {
   // FutureView State
   const [extraMonthlySIP, setExtraMonthlySIP] = useState(10000);
   const [sipInputStr, setSipInputStr] = useState('10000');
+
+  // Financial Butterfly Effect State
+  const [butterflyMonthly, setButterflyMonthly] = useState(3000);
+  const [butterflyInputStr, setButterflyInputStr] = useState('3000');
 
   const fetchProfileAndWishlist = async () => {
     try {
@@ -147,6 +151,32 @@ export const SimulatorPage: React.FC = () => {
     ];
   }, [extraMonthlySIP, userSavings]);
 
+  // Compute Butterfly Effect projection curve dynamically from butterflyMonthly
+  const butterflyChartData = useMemo(() => {
+    const baseMonthly = 30000;
+    const extraMonthly = butterflyMonthly;
+    const totalMonthly = baseMonthly + extraMonthly;
+    const r = 0.10; // 10% annual return rate
+    const monthlyRate = r / 12;
+
+    const years = [2026, 2027, 2028, 2029, 2030, 2032, 2035];
+    return years.map(yr => {
+      const months = (yr - 2025) * 12;
+      const fvBase = baseMonthly * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+      const fvOpt = totalMonthly * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+
+      const baseVal = Math.round(userSavings + fvBase);
+      const optVal = Math.round(userSavings + fvOpt);
+
+      return {
+        year: yr.toString(),
+        baseline: baseVal,
+        butterfly: optVal,
+        difference: optVal - baseVal
+      };
+    });
+  }, [butterflyMonthly, userSavings]);
+
   const remainingSavings = Math.max(0, userSavings - price);
   const runwayMonths = fixedExp > 0 ? (remainingSavings / fixedExp).toFixed(1) : '6.0';
   const isRisky = price > userSavings * 0.5;
@@ -166,7 +196,7 @@ export const SimulatorPage: React.FC = () => {
       </div>
 
       {/* TAB SELECTOR */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px' }}>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px', flexWrap: 'wrap' }}>
         <button
           onClick={() => setActiveTab('affordability')}
           className={activeTab === 'affordability' ? 'btn-gold' : 'btn-secondary'}
@@ -184,6 +214,12 @@ export const SimulatorPage: React.FC = () => {
           className={activeTab === 'shock' ? 'btn-gold' : 'btn-secondary'}
         >
           <ShieldCheck size={16} /> Financial Shock Test
+        </button>
+        <button
+          onClick={() => setActiveTab('butterfly')}
+          className={activeTab === 'butterfly' ? 'btn-gold' : 'btn-secondary'}
+        >
+          <Sparkles size={16} /> Financial Butterfly Effect
         </button>
       </div>
 
@@ -486,6 +522,202 @@ export const SimulatorPage: React.FC = () => {
         </div>
       )}
 
+      {/* TAB 4: FINANCIAL BUTTERFLY EFFECT */}
+      {activeTab === 'butterfly' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+          
+          {/* CONTROL CARD */}
+          <div className="fintech-card" style={{ padding: '28px', border: '1px solid var(--border-gold)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, var(--accent-gold), transparent)' }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(201, 169, 106, 0.12)', border: '1px solid var(--border-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Sparkles size={22} color="var(--accent-gold)" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-cream)' }}>Financial Butterfly Effect</h3>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>One small decision can change your financial future.</p>
+                </div>
+              </div>
+              <div className="badge-gold" style={{ fontSize: '0.78rem' }}>
+                <ShieldCheck size={14} /> Deterministic Simulation
+              </div>
+            </div>
+
+            {/* PRESET SELECTORS */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+                Select a Small Monthly Decision Preset:
+              </label>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {[500, 1000, 2000, 3000, 5000, 10000].map(amt => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => {
+                      setButterflyMonthly(amt);
+                      setButterflyInputStr(amt.toString());
+                    }}
+                    className={butterflyMonthly === amt ? 'btn-gold' : 'btn-secondary'}
+                    style={{ padding: '6px 14px', fontSize: '0.82rem', borderRadius: '8px' }}
+                  >
+                    +₹{amt.toLocaleString('en-IN')}/mo
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* MANUAL AMOUNT INPUT & SLIDER */}
+            <div style={{ background: '#161616', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <span style={{ color: 'var(--text-cream)', fontSize: '0.9rem', fontWeight: 700 }}>Additional Monthly Savings</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>Type manually or adjust slider</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.95rem', color: 'var(--accent-gold)', fontWeight: 700 }}>₹</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Enter amount"
+                    value={butterflyInputStr}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^0-9.]/g, '');
+                      setButterflyInputStr(raw);
+                      if (raw.trim() === '') {
+                        setButterflyMonthly(0);
+                      } else {
+                        const parsed = parseFloat(raw);
+                        if (!isNaN(parsed)) setButterflyMonthly(parsed);
+                      }
+                    }}
+                    className="fintech-input"
+                    style={{
+                      width: '130px',
+                      padding: '6px 12px',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      color: 'var(--accent-gold)',
+                      textAlign: 'right',
+                      border: '1px solid var(--border-gold)',
+                      borderRadius: '8px',
+                      background: '#0E0E0E'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <input
+                type="range"
+                min="500"
+                max="20000"
+                step="500"
+                value={Math.min(20000, butterflyMonthly)}
+                onChange={e => {
+                  const val = Number(e.target.value);
+                  setButterflyMonthly(val);
+                  setButterflyInputStr(val.toString());
+                }}
+                style={{ width: '100%', accentColor: '#C9A96A', cursor: 'pointer' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                <span>₹500/mo</span>
+                <span>₹10,000/mo</span>
+                <span>₹20,000/mo</span>
+              </div>
+            </div>
+          </div>
+
+          {/* BEFORE VS AFTER IMPACT METRICS */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
+            <div className="fintech-card" style={{ padding: '20px', borderLeft: '4px solid var(--accent-gold)' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Monthly Additional Saving</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-gold)', marginBottom: '4px' }}>
+                +₹{butterflyMonthly.toLocaleString('en-IN')}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                Baseline: ₹30,000/mo → <strong style={{ color: '#FFF' }}>₹{(30000 + butterflyMonthly).toLocaleString('en-IN')}/mo</strong>
+              </div>
+            </div>
+
+            <div className="fintech-card" style={{ padding: '20px', borderLeft: '4px solid #4ADE80' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>1-Year Direct Savings Addition</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#4ADE80', marginBottom: '4px' }}>
+                +₹{(butterflyMonthly * 12).toLocaleString('en-IN')}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                Direct cash accumulated in 12 months
+              </div>
+            </div>
+
+            <div className="fintech-card" style={{ padding: '20px', borderLeft: '4px solid var(--accent-gold)' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>5-Year Compounded Impact (10% ROI)</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-cream)', marginBottom: '4px' }}>
+                +₹{Math.round(butterflyMonthly * 77.43).toLocaleString('en-IN')}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                Compounded growth over 5 years
+              </div>
+            </div>
+
+            <div className="fintech-card" style={{ padding: '20px', borderLeft: '4px solid #38BDF8' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>10-Year Net Worth Boost</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#38BDF8', marginBottom: '4px' }}>
+                +₹{Math.round(butterflyMonthly * 204.84).toLocaleString('en-IN')}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                Compounded 10-year wealth acceleration
+              </div>
+            </div>
+          </div>
+
+          {/* COMPOUNDING TRAJECTORY CHART */}
+          <div className="fintech-card-elevated" style={{ padding: '28px', border: '1px solid var(--border-gold)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-cream)' }}>Compounding Trajectory Comparison</h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Baseline Path vs Butterfly Trajectory (+₹{butterflyMonthly.toLocaleString('en-IN')}/mo)</p>
+              </div>
+              <div style={{ display: 'flex', gap: '16px', fontSize: '0.8rem' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#71717A', display: 'inline-block' }} /> Baseline Path
+                </span>
+                <span style={{ color: 'var(--accent-gold)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#C9A96A', display: 'inline-block' }} /> Butterfly Trajectory
+                </span>
+              </div>
+            </div>
+
+            <div style={{ height: '320px', width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={butterflyChartData}>
+                  <defs>
+                    <linearGradient id="butterflyGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#C9A96A" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#C9A96A" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="year" stroke="var(--text-muted)" fontSize={12} />
+                  <YAxis stroke="var(--text-muted)" fontSize={12} tickFormatter={val => `₹${(val / 100000).toFixed(0)}L`} />
+                  <Tooltip
+                    contentStyle={{ background: '#151515', border: '1px solid var(--border-gold)', borderRadius: '8px', color: '#F1E8D8' }}
+                    formatter={(value: any) => [`₹${Number(value).toLocaleString('en-IN')}`, 'Valuation']}
+                  />
+                  <Area type="monotone" dataKey="butterfly" stroke="#C9A96A" strokeWidth={3} fillOpacity={1} fill="url(#butterflyGrad)" name="Butterfly Trajectory" />
+                  <Area type="monotone" dataKey="baseline" stroke="#71717A" strokeWidth={2} fillOpacity={0} name="Baseline Path" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div style={{ marginTop: '16px', padding: '12px 16px', background: 'rgba(201, 169, 106, 0.06)', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Info size={14} color="var(--accent-gold)" />
+              <span>Projected scenario based on deterministic compounding assumptions (10% annual growth). Illustrative simulation for financial decision planning.</span>
+            </div>
+          </div>
+
+        </div>
+      )}
     </div>
   );
 };
